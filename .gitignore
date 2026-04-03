@@ -13,3 +13,5 @@ instance/
 dist/
 build/
 *.egg-info/
+.wav
+.mp3
