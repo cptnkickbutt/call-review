@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _env_int(name: str, default: int) -> int:
     value = os.getenv(name)
@@ -21,6 +23,14 @@ def _env_bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_path(name: str, default: str) -> Path:
+    raw = os.getenv(name, default)
+    path = Path(raw)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path.resolve()
 
 
 @dataclass(frozen=True)
@@ -40,11 +50,11 @@ class Settings:
 
 def load_settings() -> Settings:
     return Settings(
-        db_path=Path(os.getenv("CALLREVIEW_DB", "./data/callreview.db")),
-        cx_source_dir=Path(os.getenv("CX_SOURCE_DIR", "./sample_data/cx_incoming")),
-        vip_source_dir=Path(os.getenv("VIP_SOURCE_DIR", "./sample_data/vipvoice_incoming")),
-        archive_cx_dir=Path(os.getenv("ARCHIVE_CX_DIR", "./sample_data/archive/WIOGEN-CX")),
-        archive_vip_dir=Path(os.getenv("ARCHIVE_VIP_DIR", "./sample_data/archive/WIOGEN-TS")),
+        db_path=_env_path("CALLREVIEW_DB", "./data/callreview.db"),
+        cx_source_dir=_env_path("CX_SOURCE_DIR", "./sample_data/cx_incoming"),
+        vip_source_dir=_env_path("VIP_SOURCE_DIR", "./sample_data/vipvoice_incoming"),
+        archive_cx_dir=_env_path("ARCHIVE_CX_DIR", "./sample_data/archive/WIOGEN-CX"),
+        archive_vip_dir=_env_path("ARCHIVE_VIP_DIR", "./sample_data/archive/WIOGEN-TS"),
         file_stable_seconds=_env_int("FILE_STABLE_SECONDS", 30),
         worker_scan_interval=_env_int("WORKER_SCAN_INTERVAL", 15),
         worker_backlog_every=_env_int("WORKER_BACKLOG_EVERY", 5),

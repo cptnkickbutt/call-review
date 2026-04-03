@@ -1,0 +1,590 @@
+{
+  "audio_file": "C:\\Users\\eshor\\OneDrive\\Desktop\\call-review\\sample_data\\cx_incoming\\TXR405fcee7bb9b6fc1c1eabc987c40a362.mp3",
+  "model": "small",
+  "initial_prompt": "This is a business phone call.\n\nCommon names:\nShawn, Marion, Ian, Jason, Michelle, Amanda, John\n\nproperties:\n525, 27 Atlantic, Arbour Reach, Austin Woods, Aviva, Avondale, Branchester Lakes, Brookridge, \nCedars, Chesterfield Gardens, Clairmont, Colony Village, Constitution, Cottages, Cromwell House, \nChester Village Green, CVG, Daleville, Era, Festival Park, Halstead Reserve, Harbourview, \nHolland House, Main Street, Marina Villa, Midtown, Norge, Park 216, Port 58, Summerdale, Tallwood, \nThalia Landing, The Square, Victoria Place, Wesleyan Place, Westwinds, White Oak, Ocean Sands, \nOcean Key, The Atrium, Western Way, Brookhaven, Sky Haven, White Sands\n\nCommon phrases:\nbilling, support, customer service, change password, internet, outage, roll technician, reschedule policy",
+  "language": "en",
+  "language_probability": 0.9930296540260315,
+  "segments": [
+    {
+      "start": 1.9,
+      "end": 3.9,
+      "text": "It's going to be 85."
+    },
+    {
+      "start": 3.9,
+      "end": 12.05,
+      "text": "We've already got the poll."
+    },
+    {
+      "start": 12.05,
+      "end": 21.66,
+      "text": "We've got a cut."
+    },
+    {
+      "start": 21.66,
+      "end": 23.66,
+      "text": "Thank you for calling Telcom Systems."
+    },
+    {
+      "start": 23.66,
+      "end": 26.39,
+      "text": "Hello."
+    },
+    {
+      "start": 26.39,
+      "end": 31.78,
+      "text": "Thank you for holding a representative."
+    },
+    {
+      "start": 31.78,
+      "end": 32.78,
+      "text": "They're on Telcom."
+    },
+    {
+      "start": 32.78,
+      "end": 34.78,
+      "text": "Do you think I can help you?"
+    },
+    {
+      "start": 34.78,
+      "end": 35.78,
+      "text": "Yes."
+    },
+    {
+      "start": 35.78,
+      "end": 37.78,
+      "text": "Where are you located?"
+    },
+    {
+      "start": 37.78,
+      "end": 40.78,
+      "text": "For their customer service in Florida."
+    },
+    {
+      "start": 40.78,
+      "end": 41.78,
+      "text": "In Florida."
+    },
+    {
+      "start": 41.78,
+      "end": 43.78,
+      "text": "Well, have a good day."
+    },
+    {
+      "start": 43.78,
+      "end": 48.78,
+      "text": "I'm calling because I have, I'm having a little issue here with my account."
+    },
+    {
+      "start": 48.78,
+      "end": 51.78,
+      "text": "What's the phone number of the account number?"
+    },
+    {
+      "start": 51.78,
+      "end": 52.78,
+      "text": "Okay."
+    },
+    {
+      "start": 52.78,
+      "end": 57.78,
+      "text": "The phone number is 757-652-2065."
+    },
+    {
+      "start": 57.78,
+      "end": 60.78,
+      "text": "What's the name on the account?"
+    },
+    {
+      "start": 60.78,
+      "end": 66.7,
+      "text": "Yassine Wahid."
+    },
+    {
+      "start": 66.7,
+      "end": 67.7,
+      "text": "Let's see."
+    },
+    {
+      "start": 67.7,
+      "end": 69.7,
+      "text": "That phone number didn't pull up anything."
+    },
+    {
+      "start": 69.7,
+      "end": 70.7,
+      "text": "Is there an account number?"
+    },
+    {
+      "start": 70.7,
+      "end": 71.7,
+      "text": "Okay."
+    },
+    {
+      "start": 71.7,
+      "end": 73.7,
+      "text": "Let me give you another phone number."
+    },
+    {
+      "start": 73.7,
+      "end": 78.7,
+      "text": "757-639-9365."
+    },
+    {
+      "start": 78.7,
+      "end": 97.58,
+      "text": "This is for the 5445 Wesleyan Drive, number 314."
+    },
+    {
+      "start": 97.58,
+      "end": 98.58,
+      "text": "Correct."
+    },
+    {
+      "start": 98.58,
+      "end": 100.58,
+      "text": "What can I help you with?"
+    },
+    {
+      "start": 100.58,
+      "end": 101.58,
+      "text": "Okay."
+    },
+    {
+      "start": 101.58,
+      "end": 108.58,
+      "text": "I see that I will charge $142.90 for my payment."
+    },
+    {
+      "start": 108.58,
+      "end": 113.58,
+      "text": "Usually my payment is $72.95."
+    },
+    {
+      "start": 113.58,
+      "end": 116.58,
+      "text": "So I'm wondering why is it doubled up?"
+    },
+    {
+      "start": 116.58,
+      "end": 119.58,
+      "text": "Looks like it was for March and April."
+    },
+    {
+      "start": 119.58,
+      "end": 121.58,
+      "text": "That's for March and April."
+    },
+    {
+      "start": 121.58,
+      "end": 122.58,
+      "text": "Yeah."
+    },
+    {
+      "start": 122.58,
+      "end": 124.58,
+      "text": "The payment runs on the 1st of every month."
+    },
+    {
+      "start": 124.58,
+      "end": 126.58,
+      "text": "The last payment they got was on the 5th."
+    },
+    {
+      "start": 126.58,
+      "end": 128.58,
+      "text": "So it charged for March and April."
+    },
+    {
+      "start": 128.58,
+      "end": 129.58,
+      "text": "On the 5th of what?"
+    },
+    {
+      "start": 129.58,
+      "end": 131.58,
+      "text": "You got on the 5th of what?"
+    },
+    {
+      "start": 131.58,
+      "end": 132.58,
+      "text": "March?"
+    },
+    {
+      "start": 132.58,
+      "end": 133.58,
+      "text": "February."
+    },
+    {
+      "start": 133.58,
+      "end": 135.58,
+      "text": "February?"
+    },
+    {
+      "start": 135.58,
+      "end": 138.6,
+      "text": "Okay."
+    },
+    {
+      "start": 138.6,
+      "end": 140.6,
+      "text": "So I was charged for February and March."
+    },
+    {
+      "start": 140.6,
+      "end": 143.6,
+      "text": "You were charged for March and April?"
+    },
+    {
+      "start": 143.6,
+      "end": 145.6,
+      "text": "For March and April."
+    },
+    {
+      "start": 145.6,
+      "end": 151.75,
+      "text": "Okay."
+    },
+    {
+      "start": 151.75,
+      "end": 156.75,
+      "text": "So was I behind in March?"
+    },
+    {
+      "start": 156.75,
+      "end": 160.75,
+      "text": "Why are you billing twice when it's usually monthly?"
+    },
+    {
+      "start": 160.75,
+      "end": 162.75,
+      "text": "There wasn't a payment in March."
+    },
+    {
+      "start": 162.75,
+      "end": 164.75,
+      "text": "The auto pay runs on the 1st of every month."
+    },
+    {
+      "start": 164.75,
+      "end": 166.75,
+      "text": "So when it ran on the 1st of April,"
+    },
+    {
+      "start": 166.75,
+      "end": 169.75,
+      "text": "it bills you for the balance, which was for March"
+    },
+    {
+      "start": 169.75,
+      "end": 171.75,
+      "text": "and then the current month, which is April."
+    },
+    {
+      "start": 171.75,
+      "end": 174.03,
+      "text": "Okay."
+    },
+    {
+      "start": 174.03,
+      "end": 175.03,
+      "text": "Hold on a minute."
+    },
+    {
+      "start": 175.03,
+      "end": 176.03,
+      "text": "Let me put my husband on."
+    },
+    {
+      "start": 176.03,
+      "end": 178.03,
+      "text": "Because he's got to look it up."
+    },
+    {
+      "start": 178.03,
+      "end": 179.03,
+      "text": "Okay."
+    },
+    {
+      "start": 179.03,
+      "end": 180.03,
+      "text": "Okay."
+    },
+    {
+      "start": 180.03,
+      "end": 182.03,
+      "text": "He's made up a payment."
+    },
+    {
+      "start": 182.03,
+      "end": 185.03,
+      "text": "What's it in December?"
+    },
+    {
+      "start": 185.03,
+      "end": 186.03,
+      "text": "He's going to look it up."
+    },
+    {
+      "start": 186.03,
+      "end": 187.03,
+      "text": "I'm sorry."
+    },
+    {
+      "start": 187.03,
+      "end": 190.86,
+      "text": "I'm holding you up."
+    },
+    {
+      "start": 190.86,
+      "end": 193.86,
+      "text": "Okay."
+    },
+    {
+      "start": 193.86,
+      "end": 197.86,
+      "text": "So once, let's say once April is finished,"
+    },
+    {
+      "start": 197.86,
+      "end": 200.86,
+      "text": "which just came in."
+    },
+    {
+      "start": 200.86,
+      "end": 203.86,
+      "text": "So the next bill will be for one month."
+    },
+    {
+      "start": 203.86,
+      "end": 204.86,
+      "text": "It's going to be double again."
+    },
+    {
+      "start": 204.86,
+      "end": 210.86,
+      "text": "It will be the $72.95 when it runs on the 1st of May."
+    },
+    {
+      "start": 210.86,
+      "end": 213.86,
+      "text": "So it'll start in May for 70, what?"
+    },
+    {
+      "start": 213.86,
+      "end": 215.86,
+      "text": "70, 295."
+    },
+    {
+      "start": 215.86,
+      "end": 217.86,
+      "text": "Only 295."
+    },
+    {
+      "start": 217.86,
+      "end": 221.86,
+      "text": "And that will start currently every month in May."
+    },
+    {
+      "start": 221.86,
+      "end": 222.86,
+      "text": "Okay."
+    },
+    {
+      "start": 222.86,
+      "end": 223.86,
+      "text": "Yeah."
+    },
+    {
+      "start": 223.86,
+      "end": 226.86,
+      "text": "The 1st of every month starting May 1st."
+    },
+    {
+      "start": 226.86,
+      "end": 227.86,
+      "text": "Okay."
+    },
+    {
+      "start": 227.86,
+      "end": 228.86,
+      "text": "Is it automatic?"
+    },
+    {
+      "start": 228.86,
+      "end": 229.86,
+      "text": "Okay."
+    },
+    {
+      "start": 229.86,
+      "end": 232.86,
+      "text": "So that's an automatic deduction coming out of my account,"
+    },
+    {
+      "start": 232.86,
+      "end": 233.86,
+      "text": "correct?"
+    },
+    {
+      "start": 233.86,
+      "end": 234.86,
+      "text": "Yes, ma'am."
+    },
+    {
+      "start": 234.86,
+      "end": 236.86,
+      "text": "Okay."
+    },
+    {
+      "start": 236.86,
+      "end": 237.86,
+      "text": "Okay."
+    },
+    {
+      "start": 237.86,
+      "end": 241.86,
+      "text": "So this double that I got now was for..."
+    },
+    {
+      "start": 241.86,
+      "end": 242.86,
+      "text": "March and April."
+    },
+    {
+      "start": 242.86,
+      "end": 244.86,
+      "text": "March and April."
+    },
+    {
+      "start": 244.86,
+      "end": 246.86,
+      "text": "Okay."
+    },
+    {
+      "start": 246.86,
+      "end": 247.86,
+      "text": "Okay."
+    },
+    {
+      "start": 247.86,
+      "end": 248.86,
+      "text": "Got it."
+    },
+    {
+      "start": 248.86,
+      "end": 250.86,
+      "text": "So it should be straight now,"
+    },
+    {
+      "start": 250.86,
+      "end": 253.86,
+      "text": "so I won't have to bother you in May, right?"
+    },
+    {
+      "start": 253.86,
+      "end": 254.86,
+      "text": "Yes, ma'am."
+    },
+    {
+      "start": 254.86,
+      "end": 258.86,
+      "text": "It'll just be the regular $72.95 on May the 1st."
+    },
+    {
+      "start": 258.86,
+      "end": 259.86,
+      "text": "May the 1st."
+    },
+    {
+      "start": 259.86,
+      "end": 260.86,
+      "text": "Okay."
+    },
+    {
+      "start": 260.86,
+      "end": 261.86,
+      "text": "May the 1st."
+    },
+    {
+      "start": 261.86,
+      "end": 262.86,
+      "text": "Okay."
+    },
+    {
+      "start": 262.86,
+      "end": 263.86,
+      "text": "Okay."
+    },
+    {
+      "start": 263.86,
+      "end": 264.86,
+      "text": "I'm sorry."
+    },
+    {
+      "start": 264.86,
+      "end": 265.86,
+      "text": "What was your name again?"
+    },
+    {
+      "start": 265.86,
+      "end": 266.86,
+      "text": "Tina."
+    },
+    {
+      "start": 266.86,
+      "end": 267.86,
+      "text": "Tina?"
+    },
+    {
+      "start": 267.86,
+      "end": 269.86,
+      "text": "Uh-huh."
+    },
+    {
+      "start": 269.86,
+      "end": 271.86,
+      "text": "Okay, Tina."
+    },
+    {
+      "start": 271.86,
+      "end": 272.86,
+      "text": "Well, you have a wonderful day."
+    },
+    {
+      "start": 272.86,
+      "end": 273.86,
+      "text": "Thank you for your help."
+    },
+    {
+      "start": 273.86,
+      "end": 274.86,
+      "text": "Okay."
+    },
+    {
+      "start": 274.86,
+      "end": 275.86,
+      "text": "You too."
+    },
+    {
+      "start": 275.86,
+      "end": 276.86,
+      "text": "Thank you, ma'am."
+    },
+    {
+      "start": 276.86,
+      "end": 277.86,
+      "text": "You're welcome."
+    },
+    {
+      "start": 277.86,
+      "end": 278.86,
+      "text": "Okay."
+    },
+    {
+      "start": 278.86,
+      "end": 279.86,
+      "text": "Thanks."
+    }
+  ],
+  "transcript_text": "It's going to be 85. We've already got the poll. We've got a cut. Thank you for calling Telcom Systems. Hello. Thank you for holding a representative. They're on Telcom. Do you think I can help you? Yes. Where are you located? For their customer service in Florida. In Florida. Well, have a good day. I'm calling because I have, I'm having a little issue here with my account. What's the phone number of the account number? Okay. The phone number is 757-652-2065. What's the name on the account? Yassine Wahid. Let's see. That phone number didn't pull up anything. Is there an account number? Okay. Let me give you another phone number. 757-639-9365. This is for the 5445 Wesleyan Drive, number 314. Correct. What can I help you with? Okay. I see that I will charge $142.90 for my payment. Usually my payment is $72.95. So I'm wondering why is it doubled up? Looks like it was for March and April. That's for March and April. Yeah. The payment runs on the 1st of every month. The last payment they got was on the 5th. So it charged for March and April. On the 5th of what? You got on the 5th of what? March? February. February? Okay. So I was charged for February and March. You were charged for March and April? For March and April. Okay. So was I behind in March? Why are you billing twice when it's usually monthly? There wasn't a payment in March. The auto pay runs on the 1st of every month. So when it ran on the 1st of April, it bills you for the balance, which was for March and then the current month, which is April. Okay. Hold on a minute. Let me put my husband on. Because he's got to look it up. Okay. Okay. He's made up a payment. What's it in December? He's going to look it up. I'm sorry. I'm holding you up. Okay. So once, let's say once April is finished, which just came in. So the next bill will be for one month. It's going to be double again. It will be the $72.95 when it runs on the 1st of May. So it'll start in May for 70, what? 70, 295. Only 295. And that will start currently every month in May. Okay. Yeah. The 1st of every month starting May 1st. Okay. Is it automatic? Okay. So that's an automatic deduction coming out of my account, correct? Yes, ma'am. Okay. Okay. So this double that I got now was for... March and April. March and April. Okay. Okay. Got it. So it should be straight now, so I won't have to bother you in May, right? Yes, ma'am. It'll just be the regular $72.95 on May the 1st. May the 1st. Okay. May the 1st. Okay. Okay. I'm sorry. What was your name again? Tina. Tina? Uh-huh. Okay, Tina. Well, you have a wonderful day. Thank you for your help. Okay. You too. Thank you, ma'am. You're welcome. Okay. Thanks."
+}

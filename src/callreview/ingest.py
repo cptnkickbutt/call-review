@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional
+import re
 
 from callreview.config import settings
 from callreview.db import get_call_by_current_path, insert_call, update_call_status
@@ -48,8 +49,11 @@ def discover_cx_files() -> list[DiscoveredFile]:
 def discover_vipvoice_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
     for path in walk_audio_files(settings.vip_source_dir):
+        if path.name.lower().endswith(".playback.mp3"):
+            continue
         stat = path.stat()
-        recorded_at = parse_datetime_from_path_parts(path.parent)
+        filename_dt = parse_vip_filename_datetime(path.name)
+        recorded_at = filename_dt or parse_datetime_from_path_parts(path.parent)
         items.append(
             DiscoveredFile(
                 system="vipvoice",
@@ -72,6 +76,8 @@ def register_discoveries() -> int:
         if existing:
             continue
 
+        call_time = item.recorded_at or datetime.fromtimestamp(item.modified_ts)
+
         insert_call(
             system=item.system,
             filename=item.path.name,
@@ -80,6 +86,7 @@ def register_discoveries() -> int:
             file_size=item.file_size,
             modified_ts=item.modified_ts,
             recorded_at=item.recorded_at.isoformat() if item.recorded_at else None,
+            call_time=call_time.isoformat() if call_time else None,
         )
         inserted += 1
 
@@ -107,3 +114,13 @@ def queue_stable_new_calls() -> int:
             changed += 1
 
     return changed
+
+def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
+    # Example: aud-20260403134944056950-xxxx.wav
+    match = re.search(r"aud-(\d{14})", filename)
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y%m%d%H%M%S")
+        except ValueError:
+            return None
+    return None

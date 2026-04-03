@@ -1,0 +1,215 @@
+{
+  "audio_file": "C:\\Users\\eshor\\OneDrive\\Desktop\\call-review\\sample_data\\cx_incoming\\TXR27e8beddf4bc764c791808577e5e7d8d.mp3",
+  "model": "small",
+  "initial_prompt": "This is a business phone call.\n\nCommon names:\nShawn, Marion, Ian, Jason, Michelle, Amanda, John\n\nproperties:\n525, 27 Atlantic, Arbour Reach, Austin Woods, Aviva, Avondale, Branchester Lakes, Brookridge, \nCedars, Chesterfield Gardens, Clairmont, Colony Village, Constitution, Cottages, Cromwell House, \nChester Village Green, CVG, Daleville, Era, Festival Park, Halstead Reserve, Harbourview, \nHolland House, Main Street, Marina Villa, Midtown, Norge, Park 216, Port 58, Summerdale, Tallwood, \nThalia Landing, The Square, Victoria Place, Wesleyan Place, Westwinds, White Oak, Ocean Sands, \nOcean Key, The Atrium, Western Way, Brookhaven, Sky Haven, White Sands\n\nCommon phrases:\nbilling, support, customer service, change password, internet, outage, roll technician, reschedule policy",
+  "language": "en",
+  "language_probability": 0.9954740405082703,
+  "segments": [
+    {
+      "start": 80.82,
+      "end": 87.29,
+      "text": "on telecom systems powered by wild gen or telecom speaking, how can I help you?"
+    },
+    {
+      "start": 87.29,
+      "end": 93.27,
+      "text": "Hi Tom, um, um, um, I'm trying to pay my internet because it's on cut all."
+    },
+    {
+      "start": 93.27,
+      "end": 97.27,
+      "text": "Okay, what's your property? Do you live there?"
+    },
+    {
+      "start": 97.27,
+      "end": 99.75,
+      "text": "Um, Avondale at\u0ba3stall."
+    },
+    {
+      "start": 99.75,
+      "end": 103.59,
+      "text": "Okay, what's your, uh, your address?"
+    },
+    {
+      "start": 103.59,
+      "end": 111.99,
+      "text": "It's 1847, Haber-dashier Place, Virginia Beach, Virginia."
+    },
+    {
+      "start": 111.99,
+      "end": 148.59,
+      "text": "up your account. Ms. Delgado? Okay. All right. So what is, ooh, okay. So you were on auto"
+    },
+    {
+      "start": 148.59,
+      "end": 155.79,
+      "text": "pay, but I guess your card was insufficient or got replaced? Yeah. Okay. Yeah, I was on"
+    },
+    {
+      "start": 155.79,
+      "end": 164.59,
+      "text": "the sufficient. Yeah. Okay. So total payment, it's required to get your services restored."
+    },
+    {
+      "start": 164.59,
+      "end": 174.59,
+      "text": "That includes the past due this month, as well as a $25 reconnect as a total of $170.68."
+    },
+    {
+      "start": 174.59,
+      "end": 183.55,
+      "text": "All right, yeah. And then you'll be good all the way through until May 10th is when your"
+    },
+    {
+      "start": 183.55,
+      "end": 191.27,
+      "text": "next bill will be due. All right, definitely. Okay. So is the card that's on file here"
+    },
+    {
+      "start": 191.27,
+      "end": 206.71,
+      "text": "no good? Or does that need to be? Is it like a card that ends in 2815? It's 2697. No, can"
+    },
+    {
+      "start": 206.71,
+      "end": 211.99,
+      "text": "you use the card I'm going to give you, though? Yeah. Do you want me to put that in as auto"
+    },
+    {
+      "start": 211.99,
+      "end": 221.07,
+      "text": "pay card? No, just for this time. Okay. So that card that's sitting there ends in 2697."
+    },
+    {
+      "start": 221.11,
+      "end": 230.15,
+      "text": "Is that a bad card now? Yeah. No, it's not a bad card. Is that I just don't want to use it right now. Okay."
+    },
+    {
+      "start": 230.15,
+      "end": 236.51,
+      "text": "All right. Okay. Because that's the one that's set up for auto pay. So on the first of the month,"
+    },
+    {
+      "start": 236.51,
+      "end": 245.11,
+      "text": "it's going to automatically, well, not this month. The first of May, it's going to automatically try"
+    },
+    {
+      "start": 245.11,
+      "end": 252.87,
+      "text": "to draft from that card. Yeah, let me hold on. And that's what I'm trying to find out so that you"
+    },
+    {
+      "start": 252.87,
+      "end": 269.18,
+      "text": "know, you know, trying to pull from a bad card. Yeah, give me a second. Hold on. Can we just pay"
+    },
+    {
+      "start": 269.18,
+      "end": 280.38,
+      "text": "with the card I want to provide to you right now and then we can reach? Yeah. Yeah. Okay. So 70. So if the"
+    },
+    {
+      "start": 280.38,
+      "end": 291.98,
+      "text": "administrative fee me taking your payment right now, that will take it up to 173 and 68 cents. Okay."
+    },
+    {
+      "start": 292.3,
+      "end": 308.46,
+      "text": "I'm ready for that. The card that you want to use. Okay. So the number would be 4773-519-8072-72815."
+    },
+    {
+      "start": 308.46,
+      "end": 326.02,
+      "text": "Okay. Month and year? December 28. Okay. Three digit verification. That'd be 794."
+    },
+    {
+      "start": 326.02,
+      "end": 343.13,
+      "text": "Okay. I'm going to read the card number back to you. 4773-5198-0727-2815."
+    },
+    {
+      "start": 345.13,
+      "end": 353.53,
+      "text": "Okay. Expires 12 of 28 with the verification code of 794. Okay."
+    },
+    {
+      "start": 353.53,
+      "end": 364.28,
+      "text": "Okay. This says please provide a valid credit card number. What kind of card is that? Hold"
+    },
+    {
+      "start": 364.28,
+      "end": 403.61,
+      "text": "on. Let me just double check it. Sorry. Give me a second. Wait. Did you say it wasn't working"
+    },
+    {
+      "start": 403.61,
+      "end": 411.77,
+      "text": "with the card number? It said please provide a valid credit card number. The error message"
+    },
+    {
+      "start": 411.77,
+      "end": 419.14,
+      "text": "flashes briefly and then it's gone. So that's why I was asking what kind of card is it,"
+    },
+    {
+      "start": 419.14,
+      "end": 435.37,
+      "text": "the Visa Mastercard? Okay. All right. Okay. Oh yeah. I'm so sorry. I said it wrong."
+    },
+    {
+      "start": 436.81,
+      "end": 441.85,
+      "text": "Oh yeah. I'm so sorry. I just know how my glass is on right now. I'm so sorry."
+    },
+    {
+      "start": 441.85,
+      "end": 458.07,
+      "text": "Okay. So you want to... I'm okay. So in the section that says 5198 or 5199. 5199?"
+    },
+    {
+      "start": 459.67,
+      "end": 476.07,
+      "text": "Yeah. Okay. Is 4773-5199. Okay. All right. So 4773-5199-0727-2815."
+    },
+    {
+      "start": 476.55,
+      "end": 498.3,
+      "text": "Yes. Okay. Let me reapply that. Okay. That one went through. Okay. All right. You've got a zero"
+    },
+    {
+      "start": 498.3,
+      "end": 506.3,
+      "text": "balance now and I'll put in the ticket to get your services restored. Okay. So... How long"
+    },
+    {
+      "start": 506.3,
+      "end": 514.94,
+      "text": "would that take? It's going to be like 10, 15 minutes at most. But that card that is still"
+    },
+    {
+      "start": 514.94,
+      "end": 524.38,
+      "text": "in here for auto pay, do you want that to stay as auto pay? I pay manually. Okay. All right. You"
+    },
+    {
+      "start": 524.38,
+      "end": 537.58,
+      "text": "reload it manually. Okay. So this is going to pull $72.95 on May 1st. Okay. May 1st is when that is"
+    },
+    {
+      "start": 537.58,
+      "end": 550.06,
+      "text": "going to draw from charge that credit card. Write that down somewhere. Okay. Save you $25."
+    },
+    {
+      "start": 551.98,
+      "end": 555.02,
+      "text": "All right. Thank you. Okay. You're welcome. Have a good day."
+    }
+  ],
+  "transcript_text": "on telecom systems powered by wild gen or telecom speaking, how can I help you? Hi Tom, um, um, um, I'm trying to pay my internet because it's on cut all. Okay, what's your property? Do you live there? Um, Avondale at\u0ba3stall. Okay, what's your, uh, your address? It's 1847, Haber-dashier Place, Virginia Beach, Virginia. up your account. Ms. Delgado? Okay. All right. So what is, ooh, okay. So you were on auto pay, but I guess your card was insufficient or got replaced? Yeah. Okay. Yeah, I was on the sufficient. Yeah. Okay. So total payment, it's required to get your services restored. That includes the past due this month, as well as a $25 reconnect as a total of $170.68. All right, yeah. And then you'll be good all the way through until May 10th is when your next bill will be due. All right, definitely. Okay. So is the card that's on file here no good? Or does that need to be? Is it like a card that ends in 2815? It's 2697. No, can you use the card I'm going to give you, though? Yeah. Do you want me to put that in as auto pay card? No, just for this time. Okay. So that card that's sitting there ends in 2697. Is that a bad card now? Yeah. No, it's not a bad card. Is that I just don't want to use it right now. Okay. All right. Okay. Because that's the one that's set up for auto pay. So on the first of the month, it's going to automatically, well, not this month. The first of May, it's going to automatically try to draft from that card. Yeah, let me hold on. And that's what I'm trying to find out so that you know, you know, trying to pull from a bad card. Yeah, give me a second. Hold on. Can we just pay with the card I want to provide to you right now and then we can reach? Yeah. Yeah. Okay. So 70. So if the administrative fee me taking your payment right now, that will take it up to 173 and 68 cents. Okay. I'm ready for that. The card that you want to use. Okay. So the number would be 4773-519-8072-72815. Okay. Month and year? December 28. Okay. Three digit verification. That'd be 794. Okay. I'm going to read the card number back to you. 4773-5198-0727-2815. Okay. Expires 12 of 28 with the verification code of 794. Okay. Okay. This says please provide a valid credit card number. What kind of card is that? Hold on. Let me just double check it. Sorry. Give me a second. Wait. Did you say it wasn't working with the card number? It said please provide a valid credit card number. The error message flashes briefly and then it's gone. So that's why I was asking what kind of card is it, the Visa Mastercard? Okay. All right. Okay. Oh yeah. I'm so sorry. I said it wrong. Oh yeah. I'm so sorry. I just know how my glass is on right now. I'm so sorry. Okay. So you want to... I'm okay. So in the section that says 5198 or 5199. 5199? Yeah. Okay. Is 4773-5199. Okay. All right. So 4773-5199-0727-2815. Yes. Okay. Let me reapply that. Okay. That one went through. Okay. All right. You've got a zero balance now and I'll put in the ticket to get your services restored. Okay. So... How long would that take? It's going to be like 10, 15 minutes at most. But that card that is still in here for auto pay, do you want that to stay as auto pay? I pay manually. Okay. All right. You reload it manually. Okay. So this is going to pull $72.95 on May 1st. Okay. May 1st is when that is going to draw from charge that credit card. Write that down somewhere. Okay. Save you $25. All right. Thank you. Okay. You're welcome. Have a good day."
+}

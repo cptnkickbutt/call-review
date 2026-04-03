@@ -1,0 +1,9 @@
+{
+  "audio_file": "C:\\Users\\eshor\\OneDrive\\Desktop\\call-review\\sample_data\\cx_incoming\\TXRfffd530e04454e9ea71ebf486f54e839.mp3",
+  "model": "small",
+  "initial_prompt": "This is a business phone call.\n\nCommon names:\nShawn, Marion, Ian, Jason, Michelle, Amanda, John\n\nproperties:\n525, 27 Atlantic, Arbour Reach, Austin Woods, Aviva, Avondale, Branchester Lakes, Brookridge, \nCedars, Chesterfield Gardens, Clairmont, Colony Village, Constitution, Cottages, Cromwell House, \nChester Village Green, CVG, Daleville, Era, Festival Park, Halstead Reserve, Harbourview, \nHolland House, Main Street, Marina Villa, Midtown, Norge, Park 216, Port 58, Summerdale, Tallwood, \nThalia Landing, The Square, Victoria Place, Wesleyan Place, Westwinds, White Oak, Ocean Sands, \nOcean Key, The Atrium, Western Way, Brookhaven, Sky Haven, White Sands\n\nCommon phrases:\nbilling, support, customer service, change password, internet, outage, roll technician, reschedule policy",
+  "language": "en",
+  "language_probability": 0.36841294169425964,
+  "segments": [],
+  "transcript_text": ""
+}

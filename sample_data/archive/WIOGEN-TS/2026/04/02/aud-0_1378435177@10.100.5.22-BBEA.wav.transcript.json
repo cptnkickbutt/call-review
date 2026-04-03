@@ -1,0 +1,144 @@
+{
+  "audio_file": "C:\\Users\\eshor\\OneDrive\\Desktop\\call-review\\sample_data\\archive\\WIOGEN-TS\\2026\\04\\02\\aud-0_1378435177@10.100.5.22-BBEA.wav",
+  "model": "small",
+  "language": "en",
+  "language_probability": 0.9989787340164185,
+  "segments": [
+    {
+      "start": 0.18,
+      "end": 1.18,
+      "text": "Hello."
+    },
+    {
+      "start": 1.18,
+      "end": 2.18,
+      "text": "Good afternoon."
+    },
+    {
+      "start": 2.18,
+      "end": 4.18,
+      "text": "This is Michelle, calling from YODEN."
+    },
+    {
+      "start": 4.18,
+      "end": 6.18,
+      "text": "Is this Ms. Lavino?"
+    },
+    {
+      "start": 6.18,
+      "end": 7.18,
+      "text": "Yes, it is."
+    },
+    {
+      "start": 7.18,
+      "end": 9.18,
+      "text": "Hey, we apparently missed you yesterday."
+    },
+    {
+      "start": 9.18,
+      "end": 15.18,
+      "text": "We were just calling to see if we could get you scheduled for the new TV system install."
+    },
+    {
+      "start": 15.18,
+      "end": 16.18,
+      "text": "Uh-huh."
+    },
+    {
+      "start": 16.18,
+      "end": 21.18,
+      "text": "I can't do it today because our schedule is already full, but would you be available tomorrow?"
+    },
+    {
+      "start": 21.18,
+      "end": 25.35,
+      "text": "Well, it depends on the time."
+    },
+    {
+      "start": 25.35,
+      "end": 29.35,
+      "text": "I have a couple of things going on tomorrow."
+    },
+    {
+      "start": 29.35,
+      "end": 34.35,
+      "text": "I could do first thing in the morning between 9 and 9.30,"
+    },
+    {
+      "start": 34.35,
+      "end": 37.35,
+      "text": "or I have a little bit later in the afternoon."
+    },
+    {
+      "start": 37.35,
+      "end": 41.35,
+      "text": "I have between 12 and 2 or between 2 and 4."
+    },
+    {
+      "start": 41.35,
+      "end": 44.35,
+      "text": "Let me just hold on a minute."
+    },
+    {
+      "start": 44.35,
+      "end": 46.98,
+      "text": "Sure."
+    },
+    {
+      "start": 46.98,
+      "end": 71.79,
+      "text": "Of course."
+    },
+    {
+      "start": 71.79,
+      "end": 77.21,
+      "text": "Oh, is..."
+    },
+    {
+      "start": 77.21,
+      "end": 80.21,
+      "text": "Okay, between 2 and 4 would work for me."
+    },
+    {
+      "start": 80.21,
+      "end": 81.21,
+      "text": "Okay."
+    },
+    {
+      "start": 81.21,
+      "end": 84.21,
+      "text": "I'll put you down for tomorrow afternoon between 2 and 4."
+    },
+    {
+      "start": 84.21,
+      "end": 85.21,
+      "text": "All right."
+    },
+    {
+      "start": 85.21,
+      "end": 87.21,
+      "text": "Thank you very much for holding back."
+    },
+    {
+      "start": 87.21,
+      "end": 88.21,
+      "text": "Yeah, you're very welcome."
+    },
+    {
+      "start": 88.21,
+      "end": 90.21,
+      "text": "You have a good day and we'll see you tomorrow after you."
+    },
+    {
+      "start": 90.21,
+      "end": 91.21,
+      "text": "You bet."
+    },
+    {
+      "start": 91.21,
+      "end": 92.21,
+      "text": "Bye-bye."
+    }
+  ],
+  "transcript_text": "Hello. Good afternoon. This is Michelle, calling from YODEN. Is this Ms. Lavino? Yes, it is. Hey, we apparently missed you yesterday. We were just calling to see if we could get you scheduled for the new TV system install. Uh-huh. I can't do it today because our schedule is already full, but would you be available tomorrow? Well, it depends on the time. I have a couple of things going on tomorrow. I could do first thing in the morning between 9 and 9.30, or I have a little bit later in the afternoon. I have between 12 and 2 or between 2 and 4. Let me just hold on a minute. Sure. Of course. Oh, is... Okay, between 2 and 4 would work for me. Okay. I'll put you down for tomorrow afternoon between 2 and 4. All right. Thank you very much for holding back. Yeah, you're very welcome. You have a good day and we'll see you tomorrow after you. You bet. Bye-bye."
+}
