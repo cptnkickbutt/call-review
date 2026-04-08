@@ -17,6 +17,7 @@ from callreview.db import (
     update_playback_info,
 )
 from callreview.utils import build_archive_path, safe_move, sha256_file
+from callreview.ingest import is_under, is_playback_file
 
 
 TRANSCRIPTION_MODEL = "medium"
@@ -472,6 +473,14 @@ def process_call_row(row) -> None:
             filename=current_path.name,
         )
 
+        if is_under(current_path, settings.archive_cx_dir):
+            archived_path = current_path
+            update_call_paths(
+                call_id,
+                current_path=str(archived_path),
+                archive_path=str(archived_path),
+            )
+        
         if settings.dry_run:
             update_call_paths(
                 call_id,

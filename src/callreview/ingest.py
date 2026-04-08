@@ -32,6 +32,10 @@ def walk_audio_files(root: Path) -> Iterator[Path]:
 def discover_cx_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
     for path in walk_audio_files(settings.cx_source_dir):
+        if is_under(path, settings.vip_source_dir):
+            continue
+        if is_playback_file(path):
+            continue
         stat = path.stat()
         items.append(
             DiscoveredFile(
@@ -124,3 +128,15 @@ def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
         except ValueError:
             return None
     return None
+
+
+def is_under(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+    
+    
+def is_playback_file(path: Path) -> bool:
+    return path.name.lower().endswith(".playback.mp3")
