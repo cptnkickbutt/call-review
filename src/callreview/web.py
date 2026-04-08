@@ -6,9 +6,11 @@ from pathlib import Path
 from flask import Flask, abort, redirect, render_template_string, request, send_file, url_for
 
 from callreview.db import (
+    add_manual_tag,
+    get_all_distinct_tags,
     get_call_by_id,
     init_db,
-    list_calls,
+    remove_manual_tag,
     search_calls,
     top_tags,
     update_review,
@@ -49,42 +51,31 @@ INDEX_TEMPLATE = """
             background: #f5f5f5;
             text-align: left;
         }
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border: 1px solid #888;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-right: 4px;
-            background-color: #f5f5f5;
-        }
-        .linkish {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        .linkish:hover {
-            text-decoration: underline;
-        }
         .tag {
             display: inline-block;
             padding: 3px 8px;
-            border: 1px solid #bbb;
             border-radius: 12px;
             font-size: 12px;
             margin: 2px 4px 2px 0;
+            border: 1px solid #bbb;
             background-color: #fafafa;
         }
         .tag a,
-        .top-tag a {
+        .top-tag a,
+        .linkish {
             text-decoration: none;
             color: inherit;
+        }
+        .linkish:hover,
+        .tag a:hover,
+        .top-tag a:hover {
+            text-decoration: underline;
         }
         .muted {
             color: #666;
         }
         .summary {
-            max-width: 500px;
+            max-width: 320px;
         }
         .flag {
             font-size: 18px;
@@ -107,42 +98,113 @@ INDEX_TEMPLATE = """
             margin-left: 6px;
             font-size: 12px;
         }
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .sort-link {
+            text-decoration: none;
+            color: inherit;
+        }
+        .sort-link:hover {
+            text-decoration: underline;
+        }
+        .sort-indicator {
+            color: #666;
+            font-size: 12px;
+            margin-left: 4px;
+        }
+        .summary-short {
+            white-space: normal;
+        }
+
+        .tag-property {
+            background-color: #eaf3ff;
+            border-color: #9ec5fe;
+        }
+        .tag-name {
+            background-color: #f3e8ff;
+            border-color: #c4b5fd;
+        }
+        .tag-sentiment-positive {
+            background-color: #e8f7e8;
+            border-color: #9bd39b;
+        }
+        .tag-sentiment-neutral {
+            background-color: #f2f2f2;
+            border-color: #cfcfcf;
+        }
+        .tag-sentiment-negative {
+            background-color: #fdeaea;
+            border-color: #f5a5a5;
+        }
+        .tag-reason-low {
+            background-color: #fff7db;
+            border-color: #e8cf77;
+        }
+        .tag-reason-medium {
+            background-color: #e6f7f2;
+            border-color: #8fd3c1;
+        }
+        .tag-reason-high {
+            background-color: #ffe8cc;
+            border-color: #f5b971;
+        }
+        .tag-reason-critical {
+            background-color: #fde2e2;
+            border-color: #ef9a9a;
+        }
     </style>
 </head>
 <body>
     <h1>Call Review</h1>
     <p class="muted">Starter UI. LDAP/Apache auth can be added later in front of this app.</p>
+    <p>Disclaimer: Tags and Transcripts are auto-generated and may be inaccurate. Please verify before relying on them.</p>
 
     <form method="get" action="/">
-        <input type="text" name="q" value="{{ q }}" placeholder="Search..." size="30">
+        <div class="controls-row">
+            <input type="text" name="q" value="{{ q }}" placeholder="Search..." size="30">
 
-        <select name="system">
-            <option value="">All systems</option>
-            <option value="cx" {% if system == 'cx' %}selected{% endif %}>CX</option>
-            <option value="vipvoice" {% if system == 'vipvoice' %}selected{% endif %}>VIPVoice</option>
-        </select>
+            <select name="system">
+                <option value="">All systems</option>
+                <option value="cx" {% if system == 'cx' %}selected{% endif %}>CX</option>
+                <option value="vipvoice" {% if system == 'vipvoice' %}selected{% endif %}>VIPVoice</option>
+            </select>
 
-        <input type="text" name="tag" value="{{ tag }}" placeholder="Tag">
+            <input type="text" name="tag" value="{{ tag }}" placeholder="Tag">
 
-        <label>From:</label>
-        <input type="date" name="date_from" value="{{ date_from }}">
+            <label>From:</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
 
-        <label>To:</label>
-        <input type="date" name="date_to" value="{{ date_to }}">
+            <label>To:</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
 
-        <button type="submit">Filter</button>
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
 
-        {% if q or system or tag or date_from or date_to %}
-            <button type="button" onclick="window.location='/'">Clear</button>
-        {% endif %}
+            <button type="submit">Filter</button>
+            <button type="button" onclick="window.location = window.location.href">Refresh</button>
+
+            <label>
+                <input type="checkbox" id="auto-refresh-toggle">
+                Auto-Refresh
+            </label>
+
+            {% if q or system or tag or date_from or date_to %}
+                <button type="button" onclick="window.location='/'">Clear</button>
+            {% endif %}
+        </div>
     </form>
 
     {% if top_tag_rows %}
         <h2>Top Tags</h2>
         <div class="top-tags">
             {% for tag_name, tag_count in top_tag_rows %}
-                <span class="top-tag">
-                    <a href="/?tag={{ tag_name }}">{{ tag_name }}</a>
+                {% set tag_info = classify_tag(tag_name) %}
+                <span class="top-tag {{ tag_info.css_class }}">
+                    <a href="/?tag={{ tag_name }}">{{ tag_info.label }}</a>
                     <span class="top-tag-count">{{ tag_count }}</span>
                 </span>
             {% endfor %}
@@ -152,8 +214,22 @@ INDEX_TEMPLATE = """
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Date</th>
+                <th>
+                    <a class="sort-link" href="{{ sort_url('id') }}">
+                        ID
+                        {% if sort == 'id' %}
+                            <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                        {% endif %}
+                    </a>
+                </th>
+                <th>
+                    <a class="sort-link" href="{{ sort_url('date') }}">
+                        Created
+                        {% if sort == 'date' %}
+                            <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                        {% endif %}
+                    </a>
+                </th>
                 <th>Flag</th>
                 <th>System</th>
                 <th>File</th>
@@ -161,7 +237,14 @@ INDEX_TEMPLATE = """
                 <th>Transcript</th>
                 <th>Playback</th>
                 <th>Review</th>
-                <th>Priority</th>
+                <th>
+                    <a class="sort-link" href="{{ sort_url('priority') }}">
+                        Priority
+                        {% if sort == 'priority' %}
+                            <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                        {% endif %}
+                    </a>
+                </th>
                 <th>Tags</th>
                 <th>Summary</th>
             </tr>
@@ -170,32 +253,77 @@ INDEX_TEMPLATE = """
             {% for row in rows %}
             <tr>
                 <td><a class="linkish" href="/call/{{ row['id'] }}">{{ row['id'] }}</a></td>
-                <td>{{ (row['call_time'] or row['discovered_at'] or '')[:10] }}</td>
+                <td>{{ format_created(row['call_time'] or row['discovered_at']) }}</td>
                 <td class="flag">{% if row['flagged'] %}🚩{% endif %}</td>
-                <td><a class="linkish" href="/?system={{ row['system'] }}"><span class="badge">{{ row['system'] }}</span></a></td>
-                <td><a class="linkish" href="/call/{{ row['id'] }}">{{ row['filename'] }}</a></td>
+                <td>
+                    <a class="linkish" href="{{ filter_url(system=row['system']) }}">{{ row['system'] }}</a>
+                </td>
+                <td>
+                    <a class="linkish" href="/call/{{ row['id'] }}">{{ display_filename(row['filename']) }}</a>
+                </td>
                 <td>{{ row['status'] }}</td>
                 <td>{{ row['transcript_status'] }}</td>
                 <td>{{ row['playback_status'] }}</td>
                 <td>{{ row['review_status'] }}</td>
                 <td>{{ row['priority_score'] }}</td>
                 <td>
-                    {% if row['tags_csv'] %}
-                        {% for one_tag in row['tags_csv'].split(',') %}
-                            {% set clean_tag = one_tag.strip() %}
-                            {% if clean_tag %}
-                                <span class="tag">
-                                    <a href="/?tag={{ clean_tag }}">{{ clean_tag }}</a>
-                                </span>
-                            {% endif %}
-                        {% endfor %}
-                    {% endif %}
+                    {% for one_tag in combined_tags(row) %}
+                        {% set tag_info = classify_tag(one_tag) %}
+                        <span class="tag {{ tag_info.css_class }}">
+                            <a href="{{ filter_url(tag=one_tag) }}">{{ tag_info.label }}</a>
+                        </span>
+                    {% endfor %}
                 </td>
-                <td class="summary">{{ row['summary_text'] or '' }}</td>
+                <td class="summary">
+                    <div class="summary-short">
+                        {{ truncate_summary(row['summary_text']) }}
+                    </div>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <script>
+        (function () {
+            const key = "callreview_auto_refresh";
+            const checkbox = document.getElementById("auto-refresh-toggle");
+            if (!checkbox) return;
+
+            const saved = window.localStorage.getItem(key);
+            if (saved === "true") {
+                checkbox.checked = true;
+            }
+
+            let intervalId = null;
+
+            function startAutoRefresh() {
+                if (intervalId) return;
+                intervalId = window.setInterval(function () {
+                    window.location.reload();
+                }, 30000);
+            }
+
+            function stopAutoRefresh() {
+                if (!intervalId) return;
+                window.clearInterval(intervalId);
+                intervalId = null;
+            }
+
+            checkbox.addEventListener("change", function () {
+                window.localStorage.setItem(key, checkbox.checked ? "true" : "false");
+                if (checkbox.checked) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+
+            if (checkbox.checked) {
+                startAutoRefresh();
+            }
+        })();
+    </script>
 </body>
 </html>
 """
@@ -244,11 +372,55 @@ DETAIL_TEMPLATE = """
         .tag {
             display: inline-block;
             padding: 3px 8px;
-            border: 1px solid #bbb;
             border-radius: 12px;
             font-size: 12px;
             margin: 2px 4px 2px 0;
+            border: 1px solid #bbb;
             background-color: #fafafa;
+        }
+        .linkish {
+            text-decoration: none;
+            color: inherit;
+        }
+        .linkish:hover {
+            text-decoration: underline;
+        }
+
+        .tag-property {
+            background-color: #eaf3ff;
+            border-color: #9ec5fe;
+        }
+        .tag-name {
+            background-color: #f3e8ff;
+            border-color: #c4b5fd;
+        }
+        .tag-sentiment-positive {
+            background-color: #e8f7e8;
+            border-color: #9bd39b;
+        }
+        .tag-sentiment-neutral {
+            background-color: #f2f2f2;
+            border-color: #cfcfcf;
+        }
+        .tag-sentiment-negative {
+            background-color: #fdeaea;
+            border-color: #f5a5a5;
+        }
+        .tag-reason-low {
+            background-color: #fff7db;
+            border-color: #e8cf77;
+        }
+        .tag-reason-medium {
+            background-color: #e6f7f2;
+            border-color: #8fd3c1;
+        }
+        .tag-reason-high {
+            background-color: #ffe8cc;
+            border-color: #f5b971;
+        }
+        .tag-reason-critical {
+            background-color: #fde2e2;
+            border-color: #ef9a9a;
         }
     </style>
 </head>
@@ -262,9 +434,12 @@ DETAIL_TEMPLATE = """
     </h1>
 
     <div class="meta">
-        <p><span class="label">System:</span> {{ row['system'] }}</p>
+        <p>
+            <span class="label">System:</span>
+            <a class="linkish" href="/?system={{ row['system'] }}">{{ row['system'] }}</a>
+        </p>
         <p><span class="label">Filename:</span> {{ row['filename'] }}</p>
-        <p><span class="label">Call Time:</span> {{ row['call_time'] or '' }}</p>
+        <p><span class="label">Created:</span> {{ format_created(row['call_time'] or row['discovered_at']) }}</p>
         <p><span class="label">Current Path:</span> {{ row['current_path'] }}</p>
         <p><span class="label">Archive Path:</span> {{ row['archive_path'] or '' }}</p>
         <p><span class="label">Playback Path:</span> {{ row['playback_path'] or '' }}</p>
@@ -279,11 +454,58 @@ DETAIL_TEMPLATE = """
                 {% for one_tag in row['tags_csv'].split(',') %}
                     {% set clean_tag = one_tag.strip() %}
                     {% if clean_tag %}
-                        <span class="tag">{{ clean_tag }}</span>
+                        {% set tag_info = classify_tag(clean_tag) %}
+                        <span class="tag {{ tag_info.css_class }}">{{ tag_info.label }}</span>
                     {% endif %}
                 {% endfor %}
             {% endif %}
         </p>
+        <div class="section">
+            <h2>Manual Tags</h2>
+
+            <form method="post" action="/call/{{ row['id'] }}/tags/add" style="margin-bottom: 12px;">
+                <label for="existing_tag"><span class="label">Add Existing Tag:</span></label>
+                <select id="existing_tag" name="existing_tag">
+                    <option value="">-- Select a tag --</option>
+                    {% for tag_name in all_tags %}
+                        <option value="{{ tag_name }}">{{ classify_tag(tag_name).label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Add</button>
+            </form>
+
+            <form method="post" action="/call/{{ row['id'] }}/tags/add">
+                <label for="new_tag_type"><span class="label">Create New Tag:</span></label>
+                <select id="new_tag_type" name="new_tag_type">
+                    <option value="reason">reason</option>
+                    <option value="property">property</option>
+                    <option value="name">name</option>
+                    <option value="sentiment">sentiment</option>
+                    <option value="manual">manual</option>
+                </select>
+
+                <input type="text" name="new_tag_value" placeholder="tag value">
+                <button type="submit">Add New Tag</button>
+            </form>
+
+            {% set manual_tags = manual_tags_only(row) %}
+            {% if manual_tags %}
+                <p style="margin-top: 12px;">
+                    <span class="label">Manual Tags:</span>
+                    {% for one_tag in manual_tags %}
+                        {% set tag_info = classify_tag(one_tag) %}
+                        <span class="tag {{ tag_info.css_class }}">
+                            {{ tag_info.label }}
+                            <form method="post" action="/call/{{ row['id'] }}/tags/remove"
+                                style="display:inline; margin-left: 4px;">
+                                <input type="hidden" name="tag" value="{{ one_tag }}">
+                                <button type="submit" style="font-size: 11px;">x</button>
+                            </form>
+                        </span>
+                    {% endfor %}
+                </p>
+            {% endif %}
+        </div>
         <p><span class="label">Review Status:</span> {{ row['review_status'] }}</p>
         <p><span class="label">Reviewed By:</span> {{ row['reviewed_by'] or '' }}</p>
         <p><span class="label">Error:</span> {{ row['error_message'] or '' }}</p>
@@ -347,6 +569,12 @@ DETAIL_TEMPLATE = """
 """
 
 
+class TagInfo:
+    def __init__(self, label: str, css_class: str):
+        self.label = label
+        self.css_class = css_class
+
+
 def detect_audio_mime(path: Path) -> str:
     suffix = path.suffix.lower()
 
@@ -383,9 +611,147 @@ def preferred_audio_path(row) -> Path | None:
     return None
 
 
+def truncate_summary(summary: str | None, max_len: int = 120) -> str:
+    if not summary:
+        return ""
+    summary = summary.strip()
+    if len(summary) <= max_len:
+        return summary
+    return summary[:max_len].rstrip() + "..."
+
+
+def display_filename(filename: str | None, keep_last: int = 18) -> str:
+    if not filename:
+        return ""
+    if len(filename) <= keep_last:
+        return filename
+    return "..." + filename[-keep_last:]
+
+
+def format_created(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = value.replace("Z", "+00:00")
+        parsed = Path  # dummy to satisfy static tools if needed
+        from datetime import datetime as _dt
+        parsed_dt = _dt.fromisoformat(dt)
+        return parsed_dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return value[:16].replace("T", " ")
+
+
+def classify_tag(tag: str) -> TagInfo:
+    if ":" not in tag:
+        return TagInfo(tag, "")
+
+    kind, value = tag.split(":", 1)
+
+    if kind == "property":
+        return TagInfo(value.replace("_", " ").title(), "tag-property")
+
+    if kind == "name":
+        return TagInfo(value.replace("_", " ").title(), "tag-name")
+
+    if kind == "sentiment":
+        if value == "negative":
+            return TagInfo("Negative", "tag-sentiment-negative")
+        if value == "positive":
+            return TagInfo("Positive", "tag-sentiment-positive")
+        return TagInfo("Neutral", "tag-sentiment-neutral")
+
+    if kind == "reason":
+        label = value.replace("_", " ").title()
+
+        low = {"payment", "billing", "voicemail", "general"}
+        medium = {"scheduling", "password_reset"}
+        high = {"phone_issue", "internet_issue", "cancellation"}
+        critical = {"outage"}
+
+        if value in low:
+            return TagInfo(label, "tag-reason-low")
+        if value in medium:
+            return TagInfo(label, "tag-reason-medium")
+        if value in high:
+            return TagInfo(label, "tag-reason-high")
+        if value in critical:
+            return TagInfo(label, "tag-reason-critical")
+
+        return TagInfo(label, "tag-reason-medium")
+
+    return TagInfo(tag, "")
+
+def split_csv_tags(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def combined_tags(row) -> list[str]:
+    auto_tags = split_csv_tags(row["tags_csv"])
+    manual_tags = split_csv_tags(row["manual_tags_csv"])
+    merged: list[str] = []
+    seen: set[str] = set()
+
+    for tag in auto_tags + manual_tags:
+        if tag not in seen:
+            merged.append(tag)
+            seen.add(tag)
+
+    return merged
+
+
+def manual_tags_only(row) -> list[str]:
+    return split_csv_tags(row["manual_tags_csv"])
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     init_db()
+
+    @app.context_processor
+    def inject_helpers():
+        q = request.args.get("q", "").strip()
+        system = request.args.get("system", "").strip()
+        tag = request.args.get("tag", "").strip()
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        sort = request.args.get("sort", "date").strip() or "date"
+        order = request.args.get("order", "desc").strip().lower() or "desc"
+
+        def filter_url(**updates):
+            params = {
+                "q": q,
+                "system": system,
+                "tag": tag,
+                "date_from": date_from,
+                "date_to": date_to,
+                "sort": sort,
+                "order": order,
+            }
+            for key, value in updates.items():
+                params[key] = value
+
+            clean_params = {k: v for k, v in params.items() if v not in ("", None)}
+            return url_for("index", **clean_params)
+
+        def sort_url(field: str):
+            next_order = "desc"
+            if sort == field and order == "desc":
+                next_order = "asc"
+            elif sort == field and order == "asc":
+                next_order = "desc"
+
+            return filter_url(sort=field, order=next_order)
+
+        return {
+            "filter_url": filter_url,
+            "sort_url": sort_url,
+            "truncate_summary": truncate_summary,
+            "display_filename": display_filename,
+            "format_created": format_created,
+            "classify_tag": classify_tag,
+        }
 
     @app.route("/")
     def index():
@@ -394,6 +760,8 @@ def create_app() -> Flask:
         tag = request.args.get("tag", "").strip() or None
         date_from = request.args.get("date_from", "").strip() or None
         date_to = request.args.get("date_to", "").strip() or None
+        sort = request.args.get("sort", "date").strip() or "date"
+        order = request.args.get("order", "desc").strip().lower() or "desc"
 
         rows = search_calls(
             query=q,
@@ -401,6 +769,8 @@ def create_app() -> Flask:
             tag=tag,
             date_from=date_from,
             date_to=date_to,
+            sort=sort,
+            order=order,
         )
 
         return render_template_string(
@@ -411,7 +781,10 @@ def create_app() -> Flask:
             tag=tag or "",
             date_from=date_from or "",
             date_to=date_to or "",
+            sort=sort,
+            order=order,
             top_tag_rows=top_tags(20),
+            combined_tags=combined_tags,
         )
 
     @app.route("/call/<int:call_id>")
@@ -429,6 +802,9 @@ def create_app() -> Flask:
             row=row,
             playable=playable,
             audio_mime=audio_mime,
+            all_tags=get_all_distinct_tags(),
+            combined_tags=combined_tags,
+            manual_tags_only=manual_tags_only,
         )
 
     @app.route("/audio/<int:call_id>")
@@ -476,4 +852,42 @@ def create_app() -> Flask:
 
         return redirect(url_for("call_detail", call_id=call_id))
 
+    
+    @app.route("/call/<int:call_id>/tags/add", methods=["POST"])
+    def add_tag_route(call_id: int):
+        row = get_call_by_id(call_id)
+        if row is None:
+            abort(404)
+
+        existing_tag = request.form.get("existing_tag", "").strip()
+        new_tag_type = request.form.get("new_tag_type", "").strip().lower()
+        new_tag_value = request.form.get("new_tag_value", "").strip()
+
+        tag_to_add = ""
+
+        if existing_tag:
+            tag_to_add = existing_tag
+        elif new_tag_type and new_tag_value:
+            normalized_value = new_tag_value.strip().lower()
+            normalized_value = normalized_value.replace(" ", "_")
+            tag_to_add = f"{new_tag_type}:{normalized_value}"
+
+        if tag_to_add:
+            add_manual_tag(call_id, tag_to_add)
+
+        return redirect(url_for("call_detail", call_id=call_id))
+
+
+    @app.route("/call/<int:call_id>/tags/remove", methods=["POST"])
+    def remove_tag_route(call_id: int):
+        row = get_call_by_id(call_id)
+        if row is None:
+            abort(404)
+
+        tag = request.form.get("tag", "").strip()
+        if tag:
+            remove_manual_tag(call_id, tag)
+
+        return redirect(url_for("call_detail", call_id=call_id))
+    
     return app

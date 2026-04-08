@@ -77,27 +77,23 @@ def init_db() -> None:
 
         if "reviewed_by" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN reviewed_by TEXT")
-
         if "notes" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN notes TEXT")
-
         if "flagged" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0")
-
         if "playback_path" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN playback_path TEXT")
-
         if "playback_status" not in columns:
             conn.execute(
                 "ALTER TABLE calls ADD COLUMN playback_status TEXT NOT NULL DEFAULT 'pending'"
             )
-
         if "playback_error" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN playback_error TEXT")
-
         if "call_time" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN call_time TEXT")
-
+        if "manual_tags_csv" not in columns:
+            conn.execute("ALTER TABLE calls ADD COLUMN manual_tags_csv TEXT")
+            
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_calls_system
@@ -434,6 +430,8 @@ def search_calls(
     tag: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    sort: str = "call_time",
+    order: str = "desc",
     limit: int = 200,
 ) -> list[sqlite3.Row]:
     sql = "SELECT * FROM calls WHERE 1=1"
@@ -448,17 +446,24 @@ def search_calls(
             OR COALESCE(transcript_text, '') LIKE ?
             OR COALESCE(summary_text, '') LIKE ?
             OR COALESCE(tags_csv, '') LIKE ?
+            OR COALESCE(manual_tags_csv, '') LIKE ?
             OR COALESCE(notes, '') LIKE ?
         )
         """
-        params.extend([query_like] * 6)
+        params.extend([query_like] * 7)
 
     if system:
         sql += " AND system = ?"
         params.append(system)
 
     if tag:
-        sql += " AND COALESCE(tags_csv, '') LIKE ?"
+        sql += """
+        AND (
+            COALESCE(tags_csv, '') LIKE ?
+            OR COALESCE(manual_tags_csv, '') LIKE ?
+        )
+        """
+        params.append(f"%{tag}%")
         params.append(f"%{tag}%")
 
     if date_from:
@@ -469,7 +474,15 @@ def search_calls(
         sql += " AND COALESCE(call_time, discovered_at) < date(?, '+1 day')"
         params.append(date_to)
 
-    sql += " ORDER BY COALESCE(call_time, discovered_at) DESC, id DESC LIMIT ?"
+    sort_map = {
+        "date": "COALESCE(call_time, discovered_at)",
+        "priority": "priority_score",
+        "id": "id",
+    }
+    sort_expr = sort_map.get(sort, "COALESCE(call_time, discovered_at)")
+    sort_order = "ASC" if order.lower() == "asc" else "DESC"
+
+    sql += f" ORDER BY {sort_expr} {sort_order}, id DESC LIMIT ?"
     params.append(limit)
 
     with get_conn() as conn:
@@ -503,3 +516,74 @@ def top_tags(limit: int = 20) -> list[tuple[str, int]]:
             counts[cleaned] = counts.get(cleaned, 0) + 1
 
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+
+def _split_csv_tags(raw: Optional[str]) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _join_csv_tags(tags: list[str]) -> str:
+    return ",".join(sorted(dict.fromkeys(tags), key=str.lower))
+
+
+def get_all_distinct_tags(limit: int = 500) -> list[str]:
+    counts: dict[str, int] = {}
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT tags_csv, manual_tags_csv
+            FROM calls
+            """
+        ).fetchall()
+
+    for row in rows:
+        for raw in (row["tags_csv"], row["manual_tags_csv"]):
+            for tag in _split_csv_tags(raw):
+                counts[tag] = counts.get(tag, 0) + 1
+
+    tags = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return [tag for tag, _count in tags[:limit]]
+
+
+def add_manual_tag(call_id: int, tag: str) -> None:
+    row = get_call_by_id(call_id)
+    if row is None:
+        return
+
+    clean_tag = tag.strip()
+    if not clean_tag:
+        return
+
+    manual_tags = _split_csv_tags(row["manual_tags_csv"])
+    if clean_tag not in manual_tags:
+        manual_tags.append(clean_tag)
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE calls
+            SET manual_tags_csv = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (_join_csv_tags(manual_tags), utc_now_iso(), call_id),
+        )
+
+
+def remove_manual_tag(call_id: int, tag: str) -> None:
+    row = get_call_by_id(call_id)
+    if row is None:
+        return
+
+    manual_tags = [t for t in _split_csv_tags(row["manual_tags_csv"]) if t != tag]
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE calls
+            SET manual_tags_csv = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (_join_csv_tags(manual_tags), utc_now_iso(), call_id),
+        )
