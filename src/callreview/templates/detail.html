@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <title>Call {{ row['id'] }}</title>
+</head>
+<body class="detail-page">
+    <div class="detail-shell">
+        <p class="back-link"><a href="/">← Back</a></p>
+
+        <div class="detail-header">
+            <div>
+                <h1 class="detail-title">
+                    Call {{ row['id'] }}
+                    {% if row['flagged'] %}
+                        <span class="flag">🚩</span>
+                    {% endif %}
+                </h1>
+
+                <div class="detail-status-row">
+                    <span class="status-pill">System: {{ row['system'] }}</span>
+                    <span class="status-pill">Status: {{ row['status'] }}</span>
+                    <span class="status-pill">Transcript: {{ row['transcript_status'] }}</span>
+                    <span class="status-pill">Playback: {{ row['playback_status'] }}</span>
+                    <span class="status-pill">Review: {{ row['review_status'] }}</span>
+                    <span class="status-pill">Priority: {{ row['priority_score'] }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-main">
+                <section class="card section">
+                    <h2>Audio</h2>
+                    {% if playable %}
+                        <audio controls preload="metadata" class="full-audio-player">
+                            <source src="/audio/{{ row['id'] }}" type="{{ audio_mime }}">
+                            Your browser does not support the audio element.
+                        </audio>
+                        <p class="audio-links">
+                            <a href="/audio/{{ row['id'] }}" target="_blank">Open audio directly</a>
+                        </p>
+                        <p class="muted">Detected MIME: {{ audio_mime }}</p>
+                    {% else %}
+                        <p class="warn">No playable audio file is currently available.</p>
+                        {% if row['playback_error'] %}
+                            <p class="warn">{{ row['playback_error'] }}</p>
+                        {% endif %}
+                    {% endif %}
+                </section>
+
+                <section class="card section">
+                    <h2>Summary</h2>
+                    <pre>{{ row['summary_text'] or '' }}</pre>
+                </section>
+
+                <section class="card section">
+                    <h2>Transcript</h2>
+                    <pre class="transcript-block">{{ row['transcript_text'] or '' }}</pre>
+                </section>
+            </div>
+
+            <aside class="detail-side">
+                <section class="card section">
+                    <h2>Call Details</h2>
+                    <div class="meta-list">
+                        <div class="meta-key">Filename</div>
+                        <div class="meta-value">{{ row['filename'] }}</div>
+
+                        <div class="meta-key">Created</div>
+                        <div class="meta-value">{{ format_created(row['call_time'] or row['discovered_at']) }}</div>
+
+                        <div class="meta-key">Reviewed By</div>
+                        <div class="meta-value">{{ row['reviewed_by'] or '' }}</div>
+
+                        {% if row['tags_csv'] or row['manual_tags_csv'] %}
+                            <div class="meta-key">Tags</div>
+                            <div class="meta-value">
+                                {% for one_tag in combined_tags(row) %}
+                                    {% set tag_info = classify_tag(one_tag) %}
+                                    <span class="tag {{ tag_info.css_class }}">{{ tag_info.label }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% if row['error_message'] %}
+                            <div class="meta-key">Error</div>
+                            <div class="meta-value warn">{{ row['error_message'] }}</div>
+                        {% endif %}
+                    </div>
+                </section>
+                
+                <section class="card section">
+                    <h2>Manual Tags</h2>
+
+                    <form method="post" action="/call/{{ row['id'] }}/tags/add" class="stack-form tag-form-inline">
+                        <label for="existing_tag"><span class="label">Add Existing Tag</span></label>
+                        <div class="inline-form-row">
+                            <select id="existing_tag" name="existing_tag">
+                                <option value="">-- Select a tag --</option>
+                                {% for tag_name in all_tags %}
+                                    <option value="{{ tag_name }}">{{ classify_tag(tag_name).label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Add</button>
+                        </div>
+                    </form>
+
+                    <form method="post" action="/call/{{ row['id'] }}/tags/add" class="stack-form">
+                        <label><span class="label">Create New Tag</span></label>
+                        <div class="inline-form-row">
+                            <select id="new_tag_type" name="new_tag_type">
+                                <option value="reason">reason</option>
+                                <option value="property">property</option>
+                                <option value="name">name</option>
+                                <option value="sentiment">sentiment</option>
+                                <option value="manual">manual</option>
+                            </select>
+
+                            <input type="text" name="new_tag_value" placeholder="tag value">
+                            <button type="submit">Add New Tag</button>
+                        </div>
+                    </form>
+
+                    {% set manual_tags = manual_tags_only(row) %}
+                    {% if manual_tags %}
+                        <div class="manual-tag-list">
+                            {% for one_tag in manual_tags %}
+                                {% set tag_info = classify_tag(one_tag) %}
+                                <span class="tag {{ tag_info.css_class }}">
+                                    {{ tag_info.label }}
+                                    <form method="post" action="/call/{{ row['id'] }}/tags/remove" class="inline-remove-form">
+                                        <input type="hidden" name="tag" value="{{ one_tag }}">
+                                        <button type="submit" class="remove-tag-button">×</button>
+                                    </form>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </section>
+
+                <section class="card section">
+                    <h2>Review</h2>
+                    <form method="post" action="/call/{{ row['id'] }}/review" class="stack-form">
+                        <label for="review_status"><span class="label">Review Status</span></label>
+                        <select id="review_status" name="review_status">
+                            <option value="unreviewed" {% if row['review_status'] == 'unreviewed' %}selected{% endif %}>Unreviewed</option>
+                            <option value="reviewed" {% if row['review_status'] == 'reviewed' %}selected{% endif %}>Reviewed</option>
+                        </select>
+
+                        <label class="checkbox-row">
+                            <input type="checkbox" name="flagged" {% if row['flagged'] %}checked{% endif %}>
+                            Flag as important
+                        </label>
+
+                        <label for="notes"><span class="label">Notes</span></label>
+                        <textarea id="notes" name="notes">{{ row['notes'] or '' }}</textarea>
+
+                        <button type="submit">Save Review</button>
+                    </form>
+                </section>
+
+                
+
+                <section class="card section technical-card">
+                    <h2>Technical Details</h2>
+                    <div class="meta-list">
+                        <div class="meta-key">Current Path</div>
+                        <div class="meta-value codeish">{{ row['current_path'] }}</div>
+
+                        <div class="meta-key">Archive Path</div>
+                        <div class="meta-value codeish">{{ row['archive_path'] or '' }}</div>
+
+                        <div class="meta-key">Playback Path</div>
+                        <div class="meta-value codeish">{{ row['playback_path'] or '' }}</div>
+
+                        {% if row['playback_error'] %}
+                            <div class="meta-key">Playback Error</div>
+                            <div class="meta-value warn">{{ row['playback_error'] }}</div>
+                        {% endif %}
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</body>
+</html>

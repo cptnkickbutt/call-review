@@ -529,18 +529,14 @@ def claim_next_call(prefer_backlog: bool = False) -> Optional[sqlite3.Row]:
             (call_id,),
         ).fetchone()
 
-
-def search_calls(
+def _build_call_search_where(
     query: str,
     system: Optional[str] = None,
     tag: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    sort: str = "call_time",
-    order: str = "desc",
-    limit: int = 200,
-) -> list[sqlite3.Row]:
-    sql = "SELECT * FROM calls WHERE 1=1"
+) -> tuple[str, list[object]]:
+    sql = " FROM calls WHERE 1=1"
     params: list[object] = []
 
     if query:
@@ -580,6 +576,28 @@ def search_calls(
         sql += " AND COALESCE(call_time, discovered_at) < date(?, '+1 day')"
         params.append(date_to)
 
+    return sql, params
+
+
+def search_calls(
+    query: str,
+    system: Optional[str] = None,
+    tag: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    sort: str = "call_time",
+    order: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+) -> list[sqlite3.Row]:
+    where_sql, params = _build_call_search_where(
+        query=query,
+        system=system,
+        tag=tag,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
     sort_map = {
         "date": "COALESCE(call_time, discovered_at)",
         "priority": "priority_score",
@@ -588,13 +606,43 @@ def search_calls(
     sort_expr = sort_map.get(sort, "COALESCE(call_time, discovered_at)")
     sort_order = "ASC" if order.lower() == "asc" else "DESC"
 
-    sql += f" ORDER BY {sort_expr} {sort_order}, id DESC LIMIT ?"
-    params.append(limit)
+    sql = f"""
+    SELECT *
+    {where_sql}
+    ORDER BY {sort_expr} {sort_order}, id DESC
+    LIMIT ? OFFSET ?
+    """
+
+    params.extend([limit, offset])
 
     with get_conn() as conn:
         rows = conn.execute(sql, tuple(params)).fetchall()
 
     return list(rows)
+
+
+def count_calls(
+    query: str,
+    system: Optional[str] = None,
+    tag: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> int:
+    where_sql, params = _build_call_search_where(
+        query=query,
+        system=system,
+        tag=tag,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    sql = f"SELECT COUNT(*) AS count {where_sql}"
+
+    with get_conn() as conn:
+        row = conn.execute(sql, tuple(params)).fetchone()
+
+    return int(row["count"]) if row is not None else 0
+
 
 def top_tags(limit: int = 20) -> list[tuple[str, int]]:
     """
