@@ -20,9 +20,13 @@ from callreview.utils import build_archive_path, safe_move, sha256_file
 from callreview.ingest import is_under, is_playback_file
 
 
-TRANSCRIPTION_MODEL = "medium"
-TRANSCRIPTION_DEVICE = "cpu"
-TRANSCRIPTION_COMPUTE_TYPE = "int8"
+@lru_cache(maxsize=1)
+def get_whisper_model() -> WhisperModel:
+    return WhisperModel(
+        settings.transcription_model,
+        device=settings.transcription_device,
+        compute_type=settings.transcription_compute_type,
+    )
 
 
 def project_root() -> Path:
@@ -421,7 +425,6 @@ def process_call_row(row) -> None:
         return
 
     try:
-        update_call_status(call_id, status="processing", transcript_status="running")
 
         file_hash = sha256_file(current_path)
         transcript = transcribe_audio(current_path)
