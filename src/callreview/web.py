@@ -22,7 +22,7 @@ INDEX_TEMPLATE = """
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Call Review</title>
+    <title>Call Recordings</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -159,9 +159,9 @@ INDEX_TEMPLATE = """
     </style>
 </head>
 <body>
-    <h1>Call Review</h1>
-    <p class="muted">Starter UI. LDAP/Apache auth can be added later in front of this app.</p>
-    <p>Disclaimer: Tags and Transcripts are auto-generated and may be inaccurate. Please verify before relying on them.</p>
+    <h1>Telcom Call Recording Review Database</h1>
+    <p class="muted">Starter UI. Work in progress. May add more features later.</p>
+    <p class="warning">Disclaimer: Tags and Transcripts are auto-generated and may be inaccurate. Please verify before relying on them.</p>
 
     <form method="get" action="/">
         <div class="controls-row">
