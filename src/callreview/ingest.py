@@ -55,9 +55,25 @@ def discover_vipvoice_files() -> list[DiscoveredFile]:
     for path in walk_audio_files(settings.vip_source_dir):
         if path.name.lower().endswith(".playback.mp3"):
             continue
+
         stat = path.stat()
+        mtime_dt = datetime.fromtimestamp(stat.st_mtime)
+
         filename_dt = parse_vip_filename_datetime(path.name)
-        recorded_at = filename_dt or parse_datetime_from_path_parts(path.parent)
+        path_dt = parse_datetime_from_path_parts(path.parent)
+
+        if filename_dt is not None:
+            recorded_at = filename_dt
+        elif path_dt is not None:
+            recorded_at = path_dt.replace(
+                hour=mtime_dt.hour,
+                minute=mtime_dt.minute,
+                second=mtime_dt.second,
+                microsecond=0,
+            )
+        else:
+            recorded_at = mtime_dt.replace(microsecond=0)
+
         items.append(
             DiscoveredFile(
                 system="vipvoice",
