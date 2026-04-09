@@ -43,9 +43,13 @@ class Settings:
     file_stable_seconds: int
     worker_scan_interval: int
     worker_backlog_every: int
+    worker_stale_processing_minutes: int
     web_host: str
     web_port: int
     dry_run: bool
+    transcription_model: str
+    transcription_device: str
+    transcription_compute_type: str
 
 
 def load_settings() -> Settings:
@@ -58,9 +62,13 @@ def load_settings() -> Settings:
         file_stable_seconds=_env_int("FILE_STABLE_SECONDS", 30),
         worker_scan_interval=_env_int("WORKER_SCAN_INTERVAL", 15),
         worker_backlog_every=_env_int("WORKER_BACKLOG_EVERY", 5),
+        worker_stale_processing_minutes=_env_int("WORKER_STALE_PROCESSING_MINUTES", 20),
         web_host=os.getenv("WEB_HOST", "127.0.0.1"),
         web_port=_env_int("WEB_PORT", 5000),
         dry_run=_env_bool("DRY_RUN", True),
+        transcription_model=os.getenv("TRANSCRIPTION_MODEL", "small"),
+        transcription_device=os.getenv("TRANSCRIPTION_DEVICE", "cpu"),
+        transcription_compute_type=os.getenv("TRANSCRIPTION_COMPUTE_TYPE", "int8"),
     )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Iterator, Optional
 
@@ -421,6 +421,112 @@ def get_oldest_backlog_call() -> Optional[sqlite3.Row]:
             ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
             LIMIT 1
             """
+        ).fetchone()
+
+
+def reset_stale_processing_calls(stale_minutes: int) -> int:
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=stale_minutes)
+    ).replace(microsecond=0).isoformat()
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            UPDATE calls
+            SET status = 'queued',
+                transcript_status = 'pending',
+                error_message = COALESCE(error_message, 'Recovered after interrupted processing'),
+                updated_at = ?
+            WHERE status = 'processing'
+              AND updated_at <= ?
+            """,
+            (utc_now_iso(), cutoff),
+        )
+        return cur.rowcount
+
+
+def claim_call_by_id(call_id: int) -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            UPDATE calls
+            SET status = 'processing',
+                transcript_status = 'running',
+                error_message = NULL,
+                updated_at = ?
+            WHERE id = ?
+              AND status IN ('new', 'queued', 'failed')
+            """,
+            (utc_now_iso(), call_id),
+        )
+
+        if cur.rowcount != 1:
+            return None
+
+        return conn.execute(
+            "SELECT * FROM calls WHERE id = ? LIMIT 1",
+            (call_id,),
+        ).fetchone()
+
+
+def claim_next_call(prefer_backlog: bool = False) -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        if prefer_backlog:
+            candidate = conn.execute(
+                """
+                SELECT id
+                FROM calls
+                WHERE status IN ('new', 'queued', 'failed')
+                ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
+                LIMIT 1
+                """
+            ).fetchone()
+        else:
+            candidate = conn.execute(
+                """
+                SELECT id
+                FROM calls
+                WHERE status = 'queued'
+                ORDER BY COALESCE(call_time, discovered_at) DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+
+            if candidate is None:
+                candidate = conn.execute(
+                    """
+                    SELECT id
+                    FROM calls
+                    WHERE status IN ('new', 'queued', 'failed')
+                    ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
+                    LIMIT 1
+                    """
+                ).fetchone()
+
+        if candidate is None:
+            return None
+
+        call_id = int(candidate["id"])
+
+        cur = conn.execute(
+            """
+            UPDATE calls
+            SET status = 'processing',
+                transcript_status = 'running',
+                error_message = NULL,
+                updated_at = ?
+            WHERE id = ?
+              AND status IN ('new', 'queued', 'failed')
+            """,
+            (utc_now_iso(), call_id),
+        )
+
+        if cur.rowcount != 1:
+            return None
+
+        return conn.execute(
+            "SELECT * FROM calls WHERE id = ? LIMIT 1",
+            (call_id,),
         ).fetchone()
 
 
