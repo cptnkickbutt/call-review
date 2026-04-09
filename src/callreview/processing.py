@@ -108,15 +108,6 @@ def load_staff_aliases() -> dict[str, list[str]]:
     return aliases
 
 
-@lru_cache(maxsize=1)
-def get_whisper_model() -> WhisperModel:
-    return WhisperModel(
-        TRANSCRIPTION_MODEL,
-        device=TRANSCRIPTION_DEVICE,
-        compute_type=TRANSCRIPTION_COMPUTE_TYPE,
-    )
-
-
 def transcribe_audio(path: Path) -> str:
     prompt = load_transcription_prompt()
     model = get_whisper_model()
