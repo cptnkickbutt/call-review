@@ -161,77 +161,19 @@ def insert_call(
     status: str = "queued",
     transcript_status: str = "pending",
 ) -> int:
-    now = utc_now_iso()
-
-    with get_conn() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO calls (
-                uuid,
-                system,
-                filename,
-                source_path,
-                current_path,
-                archive_path,
-                playback_path,
-                playback_status,
-                playback_error,
-                file_hash,
-                file_size,
-                modified_ts,
-                recorded_at,
-                call_time,
-                discovered_at,
-                status,
-                transcript_status,
-                transcript_text,
-                summary_text,
-                tags_csv,
-                manual_tags_csv,
-                priority_score,
-                review_status,
-                reviewed_by,
-                notes,
-                flagged,
-                error_message,
-                created_at,
-                updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                str(uuid.uuid4()),
-                system,
-                filename,
-                source_path,
-                current_path,
-                archive_path,
-                None,
-                "pending",
-                None,
-                None,
-                file_size,
-                modified_ts,
-                recorded_at,
-                call_time,
-                now,
-                status,
-                transcript_status,
-                None,
-                None,
-                None,
-                None,
-                0,
-                "unreviewed",
-                None,
-                None,
-                0,
-                None,
-                now,
-                now,
-            ),
-        )
-        return int(cur.lastrowid)
+    call_id, _inserted = upsert_call_discovery(
+        system=system,
+        filename=filename,
+        source_path=source_path,
+        current_path=current_path,
+        archive_path=archive_path,
+        file_size=file_size,
+        modified_ts=modified_ts,
+        recorded_at=recorded_at,
+        call_time=call_time,
+        status=status,
+    )
+    return call_id
 
 
 def upsert_call_discovery(
