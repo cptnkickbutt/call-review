@@ -483,6 +483,59 @@ def get_oldest_backlog_call() -> Optional[sqlite3.Row]:
         ).fetchone()
 
 
+def count_calls(
+    query: str,
+    system: Optional[str] = None,
+    tag: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> int:
+    sql = "SELECT COUNT(*) AS count FROM calls WHERE 1=1"
+    params: list[object] = []
+
+    if query:
+        query_like = f"%{query}%"
+        sql += """
+        AND (
+            filename LIKE ?
+            OR current_path LIKE ?
+            OR COALESCE(transcript_text, '') LIKE ?
+            OR COALESCE(summary_text, '') LIKE ?
+            OR COALESCE(tags_csv, '') LIKE ?
+            OR COALESCE(manual_tags_csv, '') LIKE ?
+            OR COALESCE(notes, '') LIKE ?
+        )
+        """
+        params.extend([query_like] * 7)
+
+    if system:
+        sql += " AND system = ?"
+        params.append(system)
+
+    if tag:
+        sql += """
+        AND (
+            COALESCE(tags_csv, '') LIKE ?
+            OR COALESCE(manual_tags_csv, '') LIKE ?
+        )
+        """
+        params.append(f"%{tag}%")
+        params.append(f"%{tag}%")
+
+    if date_from:
+        sql += " AND COALESCE(call_time, discovered_at) >= ?"
+        params.append(date_from)
+
+    if date_to:
+        sql += " AND COALESCE(call_time, discovered_at) < date(?, '+1 day')"
+        params.append(date_to)
+
+    with get_conn() as conn:
+        row = conn.execute(sql, tuple(params)).fetchone()
+
+    return int(row["count"]) if row else 0
+
+
 def search_calls(
     query: str,
     system: Optional[str] = None,
@@ -492,6 +545,7 @@ def search_calls(
     sort: str = "call_time",
     order: str = "desc",
     limit: int = 200,
+    offset: int = 0,
 ) -> list[sqlite3.Row]:
     sql = "SELECT * FROM calls WHERE 1=1"
     params: list[object] = []
@@ -541,8 +595,9 @@ def search_calls(
     sort_expr = sort_map.get(sort, "COALESCE(call_time, discovered_at)")
     sort_order = "ASC" if order.lower() == "asc" else "DESC"
 
-    sql += f" ORDER BY {sort_expr} {sort_order}, id DESC LIMIT ?"
+    sql += f" ORDER BY {sort_expr} {sort_order}, id DESC LIMIT ? OFFSET ?"
     params.append(limit)
+    params.append(offset)
 
     with get_conn() as conn:
         rows = conn.execute(sql, tuple(params)).fetchall()
