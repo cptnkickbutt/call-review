@@ -349,6 +349,27 @@ def score_priority(tags: list[str]) -> int:
     return max(score, 1)
 
 
+def preferred_audio_path(row) -> Path | None:
+    candidates: list[str | None] = []
+
+    for key in ("playback_path", "archive_path", "current_path", "source_path"):
+        try:
+            value = row[key]
+        except (KeyError, IndexError, TypeError):
+            value = None
+        candidates.append(value)
+
+    for value in candidates:
+        if not value:
+            continue
+
+        path = Path(value)
+        if path.exists() and path.is_file():
+            return path
+
+    return None
+
+
 def playback_mp3_path_for(original_path: Path) -> Path:
     return original_path.with_suffix(".playback.mp3")
 
@@ -358,15 +379,28 @@ def ffmpeg_exists() -> bool:
 
 
 def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | None]:
+    source_path = Path(source_path)
+
+    if not source_path.exists() or not source_path.is_file():
+        return None, "failed", "Source audio file not found"
+
     suffix = source_path.suffix.lower()
 
     if suffix == ".mp3":
         return source_path, "ready", None
 
+    output_path = playback_mp3_path_for(source_path)
+
+    if output_path.exists() and output_path.is_file():
+        try:
+            if output_path.stat().st_size > 0:
+                return output_path, "ready", None
+        except OSError:
+            pass
+
     if not ffmpeg_exists():
         return None, "failed", "ffmpeg not found in PATH"
 
-    output_path = playback_mp3_path_for(source_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -400,6 +434,12 @@ def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | N
 
     if not output_path.exists() or not output_path.is_file():
         return None, "failed", "ffmpeg reported success but playback file was not created"
+
+    try:
+        if output_path.stat().st_size <= 0:
+            return None, "failed", "Playback file was created but is empty"
+    except OSError as exc:
+        return None, "failed", f"Unable to verify playback file: {exc}"
 
     return output_path, "ready", None
 
