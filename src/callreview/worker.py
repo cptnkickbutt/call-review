@@ -33,12 +33,12 @@ def run_worker() -> None:
         cycle += 1
 
         inserted = register_discoveries()
-        queued = queue_stable_new_calls()
+        compat_queued = queue_stable_new_calls()
 
         if inserted:
-            print(f"[cycle {cycle}] registered {inserted} new file(s)")
-        if queued:
-            print(f"[cycle {cycle}] queued {queued} stable file(s)")
+            print(f"[cycle {cycle}] registered {inserted} canonical file(s)")
+        if compat_queued:
+            print(f"[cycle {cycle}] re-queued {compat_queued} legacy row(s)")
 
         row = pick_next_call(cycle)
         if row is not None:

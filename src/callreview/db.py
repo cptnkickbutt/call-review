@@ -56,6 +56,7 @@ def init_db() -> None:
                 transcript_text TEXT,
                 summary_text TEXT,
                 tags_csv TEXT,
+                manual_tags_csv TEXT,
                 priority_score INTEGER NOT NULL DEFAULT 0,
                 review_status TEXT NOT NULL DEFAULT 'unreviewed',
                 reviewed_by TEXT,
@@ -74,7 +75,6 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE calls ADD COLUMN review_status TEXT NOT NULL DEFAULT 'unreviewed'"
             )
-
         if "reviewed_by" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN reviewed_by TEXT")
         if "notes" not in columns:
@@ -93,62 +93,49 @@ def init_db() -> None:
             conn.execute("ALTER TABLE calls ADD COLUMN call_time TEXT")
         if "manual_tags_csv" not in columns:
             conn.execute("ALTER TABLE calls ADD COLUMN manual_tags_csv TEXT")
-            
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_system
-            ON calls(system)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_status
-            ON calls(status)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_current_path
-            ON calls(current_path)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_discovered_at
-            ON calls(discovered_at)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_call_time
-            ON calls(call_time)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_review_status
-            ON calls(review_status)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_flagged
-            ON calls(flagged)
-            """
-        )
-        conn.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_calls_playback_status
-            ON calls(playback_status)
-            """
-        )
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_system ON calls(system)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_status ON calls(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_current_path ON calls(current_path)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_discovered_at ON calls(discovered_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_call_time ON calls(call_time)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_review_status ON calls(review_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_flagged ON calls(flagged)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_playback_status ON calls(playback_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_system_filename_lookup ON calls(system, filename)")
+
+        try:
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_system_filename_unique
+                ON calls(system, filename)
+                """
+            )
+        except sqlite3.IntegrityError:
+            # Legacy duplicate rows may still exist in an older database.
+            # The app-level upsert logic below still keeps new inserts sane.
+            pass
 
 
 def get_call_by_current_path(path: str) -> Optional[sqlite3.Row]:
     with get_conn() as conn:
         return conn.execute(
-            "SELECT * FROM calls WHERE current_path = ? LIMIT 1",
+            "SELECT * FROM calls WHERE current_path = ? ORDER BY id DESC LIMIT 1",
             (path,),
+        ).fetchone()
+
+
+def get_call_by_identity(system: str, filename: str) -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM calls
+            WHERE system = ? AND filename = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (system, filename),
         ).fetchone()
 
 
@@ -166,10 +153,13 @@ def insert_call(
     filename: str,
     source_path: str,
     current_path: str,
+    archive_path: Optional[str],
     file_size: int,
     modified_ts: float,
     recorded_at: Optional[str],
     call_time: Optional[str],
+    status: str = "queued",
+    transcript_status: str = "pending",
 ) -> int:
     now = utc_now_iso()
 
@@ -197,6 +187,7 @@ def insert_call(
                 transcript_text,
                 summary_text,
                 tags_csv,
+                manual_tags_csv,
                 priority_score,
                 review_status,
                 reviewed_by,
@@ -206,7 +197,7 @@ def insert_call(
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(uuid.uuid4()),
@@ -214,7 +205,7 @@ def insert_call(
                 filename,
                 source_path,
                 current_path,
-                None,
+                archive_path,
                 None,
                 "pending",
                 None,
@@ -224,8 +215,9 @@ def insert_call(
                 recorded_at,
                 call_time,
                 now,
-                "new",
-                "pending",
+                status,
+                transcript_status,
+                None,
                 None,
                 None,
                 None,
@@ -240,6 +232,76 @@ def insert_call(
             ),
         )
         return int(cur.lastrowid)
+
+
+def upsert_call_discovery(
+    *,
+    system: str,
+    filename: str,
+    source_path: str,
+    current_path: str,
+    archive_path: Optional[str],
+    file_size: int,
+    modified_ts: float,
+    recorded_at: Optional[str],
+    call_time: Optional[str],
+    status: str = "queued",
+) -> tuple[int, bool]:
+    now = utc_now_iso()
+    existing = get_call_by_identity(system, filename)
+
+    if existing is None:
+        call_id = insert_call(
+            system=system,
+            filename=filename,
+            source_path=source_path,
+            current_path=current_path,
+            archive_path=archive_path,
+            file_size=file_size,
+            modified_ts=modified_ts,
+            recorded_at=recorded_at,
+            call_time=call_time,
+            status=status,
+            transcript_status="pending",
+        )
+        return call_id, True
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE calls
+            SET source_path = ?,
+                current_path = ?,
+                archive_path = ?,
+                file_size = ?,
+                modified_ts = ?,
+                recorded_at = COALESCE(?, recorded_at),
+                call_time = COALESCE(?, call_time),
+                status = CASE
+                    WHEN status IN ('processed', 'archived', 'processing') THEN status
+                    ELSE ?
+                END,
+                error_message = CASE
+                    WHEN status IN ('processed', 'archived', 'processing') THEN error_message
+                    ELSE NULL
+                END,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                source_path,
+                current_path,
+                archive_path,
+                file_size,
+                modified_ts,
+                recorded_at,
+                call_time,
+                status,
+                now,
+                existing["id"],
+            ),
+        )
+    return int(existing["id"]), False
 
 
 def update_call_paths(
@@ -417,7 +479,7 @@ def get_oldest_backlog_call() -> Optional[sqlite3.Row]:
             """
             SELECT *
             FROM calls
-            WHERE status IN ('new', 'queued', 'failed')
+            WHERE status IN ('queued', 'failed')
             ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
             LIMIT 1
             """
@@ -490,11 +552,8 @@ def search_calls(
 
     return list(rows)
 
+
 def top_tags(limit: int = 20) -> list[tuple[str, int]]:
-    """
-    Returns a list of (tag, count), ordered by most-used first.
-    Tags are stored as comma-separated strings in tags_csv, so we split in Python.
-    """
     counts: dict[str, int] = {}
 
     with get_conn() as conn:
@@ -516,6 +575,7 @@ def top_tags(limit: int = 20) -> list[tuple[str, int]]:
             counts[cleaned] = counts.get(cleaned, 0) + 1
 
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+
 
 def _split_csv_tags(raw: Optional[str]) -> list[str]:
     if not raw:

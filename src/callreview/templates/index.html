@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <title>Wiogen Call Review</title>
+</head>
+<body>
+    <div class="page-header">
+        <div class="brand-block">
+            <h1 class="brand-title">
+                <img src="{{ url_for('static', filename='Wiogen-Logo.svg') }}" class="brand-logo" alt="Wiogen logo">
+                <span>Call Review</span>
+            </h1>
+            <p class="muted brand-subtitle">Internal review tool for recorded calls</p>
+        </div>
+
+        <div class="header-actions">
+            <button type="button" class="help-button help-button-top" id="help-open-button">Help</button>
+        </div>
+    </div>
+
+    <div class="notice-bar">
+        Disclaimer: Tags, summaries, and transcripts are auto-generated and may be inaccurate. Please verify before relying on them.
+    </div>
+
+    <div class="filters-card">
+        <form method="get" action="/">
+            <div class="controls-row">
+                <input type="text" name="q" value="{{ q }}" placeholder="Search..." size="30">
+
+                <select name="system">
+                    <option value="">All systems</option>
+                    <option value="cx" {% if system == 'cx' %}selected{% endif %}>CX</option>
+                    <option value="vipvoice" {% if system == 'vipvoice' %}selected{% endif %}>VIPVoice</option>
+                </select>
+
+                <input type="text" name="tag" value="{{ tag }}" placeholder="Tag">
+
+                <label>From:</label>
+                <input type="date" name="date_from" value="{{ date_from }}">
+
+                <label>To:</label>
+                <input type="date" name="date_to" value="{{ date_to }}">
+
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+
+                <button type="submit">Filter</button>
+                <button type="button" onclick="window.location = window.location.href">Refresh</button>
+
+                {% if q or system or tag or date_from or date_to %}
+                    <button type="button" onclick="window.location='/'">Clear</button>
+                {% endif %}
+
+                <label>
+                    <input type="checkbox" id="auto-refresh-toggle">
+                    Auto-Refresh
+                </label>
+            </div>
+        </form>
+    </div>
+
+    {% if top_tag_rows %}
+        <div class="tags-card">
+            <h2>Top Tags</h2>
+            <div class="top-tags">
+                {% for tag_name, tag_count in top_tag_rows %}
+                    {% set tag_info = classify_tag(tag_name) %}
+                    <span class="top-tag {{ tag_info.css_class }}">
+                        <a href="/?tag={{ tag_name }}">{{ tag_info.label }}</a>
+                        <span class="top-tag-count">{{ tag_count }}</span>
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if total_pages > 1 %}
+    <div class="pagination-bar">
+        <div class="pagination-summary">
+            Showing {{ start_row }}–{{ end_row }} of {{ total_count }}
+        </div>
+
+        <div class="pagination-links">
+            {% if page > 1 %}
+                <a class="page-button" href="{{ page_url(page - 1) }}">← Previous</a>
+            {% else %}
+                <span class="page-button disabled">← Previous</span>
+            {% endif %}
+
+            <span class="page-current">Page {{ page }} of {{ total_pages }}</span>
+
+            {% if page < total_pages %}
+                <a class="page-button" href="{{ page_url(page + 1) }}">Next →</a>
+            {% else %}
+                <span class="page-button disabled">Next →</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>
+                        <a class="sort-link" href="{{ sort_url('id') }}">
+                            ID
+                            {% if sort == 'id' %}
+                                <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-link" href="{{ sort_url('date') }}">
+                            Created
+                            {% if sort == 'date' %}
+                                <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>Flag</th>
+                    <th>System</th>
+                    <th>File</th>
+                    <th>Status</th>
+                    <th>Transcript</th>
+                    <th>Playback</th>
+                    <th>Review</th>
+                    <th>
+                        <a class="sort-link" href="{{ sort_url('priority') }}">
+                            Priority
+                            {% if sort == 'priority' %}
+                                <span class="sort-indicator">{{ '↑' if order == 'asc' else '↓' }}</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>Tags</th>
+                    <th>Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td><a class="linkish" href="/call/{{ row['id'] }}">{{ row['id'] }}</a></td>
+                    <td>{{ format_created(row['call_time'] or row['discovered_at']) }}</td>
+                    <td class="flag">{% if row['flagged'] %}🚩{% endif %}</td>
+                    <td>
+                        <a class="linkish" href="{{ filter_url(system=row['system']) }}">{{ row['system'] }}</a>
+                    </td>
+                    <td>
+                        <a class="linkish" href="/call/{{ row['id'] }}">{{ display_filename(row['filename']) }}</a>
+                    </td>
+                    <td>{{ row['status'] }}</td>
+                    <td>{{ row['transcript_status'] }}</td>
+                    <td>{{ row['playback_status'] }}</td>
+                    <td>{{ row['review_status'] }}</td>
+                    <td>{{ row['priority_score'] }}</td>
+                    <td>
+                        {% for one_tag in combined_tags(row) %}
+                            {% set tag_info = classify_tag(one_tag) %}
+                            <span class="tag {{ tag_info.css_class }}">
+                                <a href="{{ filter_url(tag=one_tag) }}">{{ tag_info.label }}</a>
+                            </span>
+                        {% endfor %}
+                    </td>
+                    <td class="summary">
+                        <div class="summary-short">
+                            {{ truncate_summary(row['summary_text']) }}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination-bar">
+        <div class="pagination-summary">
+            Showing {{ start_row }}–{{ end_row }} of {{ total_count }}
+        </div>
+
+        <div class="pagination-links">
+            {% if page > 1 %}
+                <a class="page-button" href="{{ page_url(page - 1) }}">← Previous</a>
+            {% else %}
+                <span class="page-button disabled">← Previous</span>
+            {% endif %}
+
+            <span class="page-current">Page {{ page }} of {{ total_pages }}</span>
+
+            {% if page < total_pages %}
+                <a class="page-button" href="{{ page_url(page + 1) }}">Next →</a>
+            {% else %}
+                <span class="page-button disabled">Next →</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="help-overlay" id="help-overlay" aria-hidden="true">
+        <div class="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+            <h2 id="help-title">Welcome to Call Review</h2>
+            <p>
+                This page helps you find, review, and listen to recorded calls.
+                Use the search bar and filters to narrow the list, then click a file name or ID to open the full call page.
+            </p>
+
+            <h3>How to use this page</h3>
+            <ul>
+                <li><strong>Search:</strong> Find calls by filename, transcript text, phone number, or keywords.</li>
+                <li><strong>System:</strong> Limit results to CX or VIPVoice calls.</li>
+                <li><strong>Tag:</strong> Show only calls matching a specific tag.</li>
+                <li><strong>Date filters:</strong> Narrow results to a date range.</li>
+                <li><strong>Click a call:</strong> Open the detail page to review transcript, audio, notes, and tags.</li>
+                <li><strong>Top Tags:</strong> Quickly jump into common call topics.</li>
+            </ul>
+
+            <h3>Status guide</h3>
+            <ul>
+                <li><strong>queued:</strong> waiting to be processed</li>
+                <li><strong>processing:</strong> currently being transcribed or prepared</li>
+                <li><strong>complete:</strong> ready for review</li>
+                <li><strong>failed:</strong> something went wrong and may need attention</li>
+            </ul>
+
+            <p class="help-small">
+                Transcripts, summaries, and tags are auto-generated and may not always be accurate.
+                Please verify important details before relying on them.
+            </p>
+
+            <div class="help-actions">
+                <label>
+                    <input type="checkbox" id="help-hide-future">
+                    Don’t show this automatically again
+                </label>
+
+                <div class="help-actions-right">
+                    <button type="button" class="help-close" id="help-close-button">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

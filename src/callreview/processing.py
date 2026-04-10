@@ -3,20 +3,17 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
 from faster_whisper import WhisperModel
 
-from callreview.config import settings
 from callreview.db import (
-    update_call_paths,
     update_call_processing_results,
     update_call_status,
     update_playback_info,
 )
-from callreview.utils import build_archive_path, safe_move, sha256_file
+from callreview.utils import sha256_file
 
 
 TRANSCRIPTION_MODEL = "medium"
@@ -68,12 +65,6 @@ def normalize_for_match(text: str) -> str:
 
 @lru_cache(maxsize=1)
 def load_staff_aliases() -> dict[str, list[str]]:
-    """
-    Expected format per line:
-      Canonical: Alias1, Alias2, Alias3
-    Also supports plain one-name-per-line:
-      Marion
-    """
     path = project_root() / "config" / "staff_names.txt"
     if not path.exists():
         return {}
@@ -148,23 +139,8 @@ def detect_reason_tags(transcript: str) -> list[str]:
     text = normalize_for_match(transcript)
 
     reason_patterns: dict[str, list[str]] = {
-        "payment": [
-            "make a payment",
-            "pay my bill",
-            "pay bill",
-            "make payment",
-            "payment",
-        ],
-        "billing": [
-            "billing",
-            "invoice",
-            "charged",
-            "charge",
-            "autopay",
-            "auto pay",
-            "bill",
-            "refund",
-        ],
+        "payment": ["make a payment", "pay my bill", "pay bill", "make payment", "payment"],
+        "billing": ["billing", "invoice", "charged", "charge", "autopay", "auto pay", "bill", "refund"],
         "internet_issue": [
             "internet issue",
             "internet down",
@@ -185,72 +161,38 @@ def detect_reason_tags(transcript: str) -> list[str]:
             "can't receive calls",
             "cannot receive calls",
         ],
-        "scheduling": [
-            "schedule",
-            "scheduling",
-            "appointment",
-            "reschedule",
-            "set up a time",
-        ],
-        "cancellation": [
-            "cancel service",
-            "cancellation",
-            "disconnect service",
-            "disconnect",
-            "terminate service",
-        ],
-        "outage": [
-            "outage",
-            "service outage",
-            "widespread issue",
-            "everyone is down",
-            "whole property is down",
-        ],
-        "password_reset": [
-            "password reset",
-            "reset password",
-            "forgot password",
-        ],
-        "voicemail": [
-            "voicemail",
-            "voice mail",
-            "mailbox",
-        ],
+        "scheduling": ["schedule", "scheduling", "appointment", "reschedule", "set up a time"],
+        "cancellation": ["cancel service", "cancellation", "disconnect service", "disconnect", "terminate service"],
+        "outage": ["outage", "service outage", "widespread issue", "everyone is down", "whole property is down"],
+        "password_reset": ["password reset", "reset password", "forgot password"],
+        "voicemail": ["voicemail", "voice mail", "mailbox"],
     }
 
     found: list[str] = []
-
     for reason, needles in reason_patterns.items():
         if any(needle in text for needle in needles):
             found.append(f"reason:{reason}")
-
     return found
 
 
 def detect_property_tags(transcript: str) -> list[str]:
     text = normalize_for_match(transcript)
     found: list[str] = []
-
     for property_name in load_properties():
         if normalize_for_match(property_name) in text:
             found.append(f"property:{slugify_tag_value(property_name)}")
-
     return found
 
 
 def detect_name_tags(transcript: str) -> list[str]:
     text = normalize_for_match(transcript)
     found: list[str] = []
-
     for canonical_slug, aliases in load_staff_aliases().items():
         for alias in aliases:
             alias_norm = normalize_for_match(alias)
-            if not alias_norm:
-                continue
-            if re.search(rf"\b{re.escape(alias_norm)}\b", text):
+            if alias_norm and re.search(rf"\b{re.escape(alias_norm)}\b", text):
                 found.append(f"name:{canonical_slug}")
                 break
-
     return found
 
 
@@ -273,13 +215,7 @@ def detect_sentiment_tags(transcript: str) -> list[str]:
         "not working",
         "outage",
     ]
-    positive_hits = [
-        "thank you",
-        "appreciate it",
-        "resolved",
-        "that works",
-        "sounds good",
-    ]
+    positive_hits = ["thank you", "appreciate it", "resolved", "that works", "sounds good"]
 
     neg = sum(1 for phrase in negative_hits if phrase in text)
     pos = sum(1 for phrase in positive_hits if phrase in text)
@@ -293,28 +229,21 @@ def detect_sentiment_tags(transcript: str) -> list[str]:
 
 def build_tags(transcript: str) -> list[str]:
     tags: set[str] = set()
-
     for tag in detect_reason_tags(transcript):
         tags.add(tag)
-
     for tag in detect_property_tags(transcript):
         tags.add(tag)
-
     for tag in detect_name_tags(transcript):
         tags.add(tag)
-
     for tag in detect_sentiment_tags(transcript):
         tags.add(tag)
-
     if not any(tag.startswith("reason:") for tag in tags):
         tags.add("reason:general")
-
     return sorted(tags)
 
 
 def score_priority(tags: list[str]) -> int:
     score = 10
-
     for tag in tags:
         if tag == "reason:payment":
             score += 2
@@ -334,12 +263,10 @@ def score_priority(tags: list[str]) -> int:
             score += 12
         elif tag == "reason:voicemail":
             score += 1
-
         elif tag == "sentiment:negative":
             score += 8
         elif tag == "sentiment:positive":
             score -= 2
-
     return max(score, 1)
 
 
@@ -361,6 +288,9 @@ def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | N
         return None, "failed", "ffmpeg not found in PATH"
 
     output_path = playback_mp3_path_for(source_path)
+    if output_path.exists() and output_path.is_file():
+        return output_path, "ready", None
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -379,12 +309,7 @@ def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | N
     ]
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except Exception as exc:
         return None, "failed", f"ffmpeg execution failed: {exc}"
 
@@ -400,16 +325,14 @@ def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | N
 
 def process_call_row(row) -> None:
     call_id = row["id"]
-    system = row["system"]
     current_path = Path(row["current_path"])
-    recorded_at_raw = row["recorded_at"]
 
-    if not current_path.exists():
+    if not current_path.exists() or not current_path.is_file():
         update_call_status(
             call_id,
             status="failed",
             transcript_status="failed",
-            error_message="File no longer exists at current_path",
+            error_message="Canonical file missing at current_path",
         )
         update_playback_info(
             call_id,
@@ -437,68 +360,7 @@ def process_call_row(row) -> None:
             priority_score=priority,
         )
 
-        if system == "vipvoice":
-            archived_path = current_path
-
-            update_call_paths(
-                call_id,
-                current_path=str(archived_path),
-                archive_path=str(archived_path),
-            )
-
-            playback_path, playback_status, playback_error = generate_playback_file(archived_path)
-            update_playback_info(
-                call_id,
-                playback_path=str(playback_path) if playback_path else None,
-                playback_status=playback_status,
-                playback_error=playback_error,
-            )
-
-            update_call_status(call_id, status="archived")
-            return
-
-        recorded_dt = None
-        if recorded_at_raw:
-            try:
-                recorded_dt = datetime.fromisoformat(recorded_at_raw)
-            except ValueError:
-                recorded_dt = None
-
-        archive_root = settings.archive_cx_dir
-        archive_path = build_archive_path(
-            archive_root=archive_root,
-            recorded_dt=recorded_dt,
-            fallback_mtime=current_path.stat().st_mtime,
-            filename=current_path.name,
-        )
-
-        if settings.dry_run:
-            update_call_paths(
-                call_id,
-                current_path=str(current_path),
-                archive_path=str(archive_path),
-            )
-
-            playback_path, playback_status, playback_error = generate_playback_file(current_path)
-            update_playback_info(
-                call_id,
-                playback_path=str(playback_path) if playback_path else None,
-                playback_status=playback_status,
-                playback_error=playback_error,
-            )
-
-            update_call_status(call_id, status="archived")
-            return
-
-        safe_move(current_path, archive_path)
-
-        update_call_paths(
-            call_id,
-            current_path=str(archive_path),
-            archive_path=str(archive_path),
-        )
-
-        playback_path, playback_status, playback_error = generate_playback_file(archive_path)
+        playback_path, playback_status, playback_error = generate_playback_file(current_path)
         update_playback_info(
             call_id,
             playback_path=str(playback_path) if playback_path else None,
