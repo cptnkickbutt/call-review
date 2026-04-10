@@ -115,8 +115,18 @@ def register_discoveries() -> int:
 
 def queue_stable_new_calls() -> int:
     from callreview.db import get_conn
+    from callreview.logging_utils import setup_logging
+
+    logger = setup_logging(
+        name="callreview.queue",
+        log_dir=settings.log_dir,
+        log_filename=settings.log_file,
+        level=settings.log_level,
+    )
 
     changed = 0
+    checked = 0
+
     with get_conn() as conn:
         rows = conn.execute(
             """
@@ -128,11 +138,27 @@ def queue_stable_new_calls() -> int:
         ).fetchall()
 
     for row in rows:
+        checked += 1
         path = Path(row["current_path"])
-        if file_is_stable(path, settings.file_stable_seconds):
+
+        if not path.exists():
+            logger.warning(
+                "queue check skipped id=%s path missing: %s",
+                row["id"],
+                path,
+            )
+            continue
+
+        stable = file_is_stable(path, settings.file_stable_seconds)
+
+        if stable:
             update_call_status(row["id"], status="queued")
             changed += 1
+            logger.info("queued id=%s path=%s", row["id"], path)
+        else:
+            logger.info("still unstable id=%s path=%s", row["id"], path)
 
+    logger.info("queue pass checked=%s queued=%s", checked, changed)
     return changed
 
 def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
