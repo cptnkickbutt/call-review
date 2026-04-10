@@ -426,32 +426,33 @@ def process_call_row(row) -> None:
         return
 
     try:
-
         file_hash = sha256_file(current_path)
         transcript = transcribe_audio(current_path)
         tags = build_tags(transcript)
         summary = build_summary(transcript)
         priority = score_priority(tags)
 
-        update_call_processing_results(
-            call_id,
-            file_hash=file_hash,
-            transcript_text=transcript,
-            summary_text=summary,
-            tags_csv=",".join(tags),
-            priority_score=priority,
-        )
-
+        # VIPVOICE: file is already treated as final in place
         if system == "vipvoice":
-            archived_path = current_path
+            final_audio_path = current_path
+
+            playback_path, playback_status, playback_error = generate_playback_file(final_audio_path)
+
+            update_call_processing_results(
+                call_id,
+                file_hash=file_hash,
+                transcript_text=transcript,
+                summary_text=summary,
+                tags_csv=",".join(tags),
+                priority_score=priority,
+            )
 
             update_call_paths(
                 call_id,
-                current_path=str(archived_path),
-                archive_path=str(archived_path),
+                current_path=str(final_audio_path),
+                archive_path=str(final_audio_path),
             )
 
-            playback_path, playback_status, playback_error = generate_playback_file(archived_path)
             update_playback_info(
                 call_id,
                 playback_path=str(playback_path) if playback_path else None,
@@ -477,41 +478,36 @@ def process_call_row(row) -> None:
             filename=current_path.name,
         )
 
+        # Determine final location first
         if is_under(current_path, settings.archive_cx_dir):
-            archived_path = current_path
-            update_call_paths(
-                call_id,
-                current_path=str(archived_path),
-                archive_path=str(archived_path),
-            )
-        
-        if settings.dry_run:
-            update_call_paths(
-                call_id,
-                current_path=str(current_path),
-                archive_path=str(archive_path),
-            )
+            final_audio_path = current_path
+        elif settings.dry_run:
+            final_audio_path = current_path
+        else:
+            safe_move(current_path, archive_path)
+            final_audio_path = archive_path
 
-            playback_path, playback_status, playback_error = generate_playback_file(current_path)
-            update_playback_info(
-                call_id,
-                playback_path=str(playback_path) if playback_path else None,
-                playback_status=playback_status,
-                playback_error=playback_error,
-            )
+        # In dry-run, keep archive_path informative, but do not change current_path
+        final_archive_path = archive_path if settings.dry_run else final_audio_path
 
-            update_call_status(call_id, status="archived")
-            return
+        playback_path, playback_status, playback_error = generate_playback_file(final_audio_path)
 
-        safe_move(current_path, archive_path)
+        # Only now write final DB state
+        update_call_processing_results(
+            call_id,
+            file_hash=file_hash,
+            transcript_text=transcript,
+            summary_text=summary,
+            tags_csv=",".join(tags),
+            priority_score=priority,
+        )
 
         update_call_paths(
             call_id,
-            current_path=str(archive_path),
-            archive_path=str(archive_path),
+            current_path=str(final_audio_path),
+            archive_path=str(final_archive_path),
         )
 
-        playback_path, playback_status, playback_error = generate_playback_file(archive_path)
         update_playback_info(
             call_id,
             playback_path=str(playback_path) if playback_path else None,
