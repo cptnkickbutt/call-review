@@ -50,6 +50,9 @@ class Settings:
     transcription_model: str
     transcription_device: str
     transcription_compute_type: str
+    log_dir: Path
+    log_file: str
+    log_level: str
 
 
 def load_settings() -> Settings:
@@ -69,6 +72,9 @@ def load_settings() -> Settings:
         transcription_model=os.getenv("TRANSCRIPTION_MODEL", "small"),
         transcription_device=os.getenv("TRANSCRIPTION_DEVICE", "cpu"),
         transcription_compute_type=os.getenv("TRANSCRIPTION_COMPUTE_TYPE", "int8"),
+        log_dir=_env_path("CALLREVIEW_LOG_DIR", "./logs"),
+        log_file=os.getenv("CALLREVIEW_LOG_FILE", "call-review.log"),
+        log_level=os.getenv("CALLREVIEW_LOG_LEVEL", "INFO"),
     )
 
 
