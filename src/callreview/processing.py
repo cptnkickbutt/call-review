@@ -227,8 +227,18 @@ def detect_property_tags(transcript: str) -> list[str]:
     text = normalize_for_match(transcript)
     found: list[str] = []
 
-    for property_name in load_properties():
-        if normalize_for_match(property_name) in text:
+    properties = sorted(load_properties(), key=lambda p: len(p), reverse=True)
+
+    for property_name in properties:
+        prop_norm = normalize_for_match(property_name)
+        if not prop_norm:
+            continue
+
+        # For short or risky names like "Era", require strict word boundaries.
+        # For everything else, also use boundaries so we don't match inside other words.
+        pattern = rf"(?<![a-z0-9]){re.escape(prop_norm)}(?![a-z0-9])"
+
+        if re.search(pattern, text):
             found.append(f"property:{slugify_tag_value(property_name)}")
 
     return found
