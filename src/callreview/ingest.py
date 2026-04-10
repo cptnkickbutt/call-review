@@ -114,6 +114,26 @@ def register_discoveries() -> int:
     return inserted
 
 
+def resolve_moved_call_path(current_path: Path, archive_root: Path) -> Path | None:
+    """
+    Try to locate a moved call file by filename under the archive tree.
+    Intended as a recovery path for stale current_path values.
+    """
+    if current_path.exists() and current_path.is_file():
+        return current_path
+
+    if not archive_root.exists() or not archive_root.is_dir():
+        return None
+
+    matches = list(archive_root.rglob(current_path.name))
+    if not matches:
+        return None
+
+    # Prefer the newest match if more than one somehow exists.
+    matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return matches[0]
+
+
 def queue_stable_new_calls() -> int:
     from callreview.db import get_conn
     from callreview.logging_utils import setup_logging
@@ -130,7 +150,7 @@ def queue_stable_new_calls() -> int:
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, current_path, archive_path
+            SELECT id, system, current_path, archive_path
             FROM calls
             WHERE status = 'new'
             ORDER BY discovered_at ASC
@@ -139,48 +159,53 @@ def queue_stable_new_calls() -> int:
 
     for row in rows:
         call_id = row["id"]
+        system = row["system"]
         current_path = Path(row["current_path"]) if row["current_path"] else None
         archive_path = Path(row["archive_path"]) if row["archive_path"] else None
 
-        # Normal case: current path still exists
-        if current_path and current_path.exists() and current_path.is_file():
-            age = time_module.time() - current_path.stat().st_mtime
-            if age >= settings.file_stable_seconds:
-                update_call_status(call_id, status="queued")
-                changed += 1
-                logger.info("queued id=%s from current_path=%s", call_id, current_path)
-            else:
-                logger.info(
-                    "still new id=%s age=%.1fs required=%ss path=%s",
-                    call_id,
-                    age,
-                    settings.file_stable_seconds,
-                    current_path,
-                )
-            continue
+        resolved_path = None
 
-        # Recovery case: file already moved to archive before queueing
-        if archive_path and archive_path.exists() and archive_path.is_file():
-            update_call_paths(
+        if current_path and current_path.exists() and current_path.is_file():
+            resolved_path = current_path
+        elif archive_path and archive_path.exists() and archive_path.is_file():
+            resolved_path = archive_path
+        elif system == "cx" and current_path:
+            resolved_path = resolve_moved_call_path(current_path, settings.archive_cx_dir)
+            if resolved_path:
+                update_call_paths(
+                    call_id,
+                    current_path=str(resolved_path),
+                    archive_path=str(resolved_path),
+                )
+                logger.info(
+                    "recovered moved cx file id=%s old=%s new=%s",
+                    call_id,
+                    current_path,
+                    resolved_path,
+                )
+
+        if resolved_path is None:
+            logger.warning(
+                "new row stranded id=%s missing current_path=%s archive_path=%s",
                 call_id,
-                current_path=str(archive_path),
-                archive_path=str(archive_path),
-            )
-            update_call_status(call_id, status="queued")
-            changed += 1
-            logger.info(
-                "recovered and queued id=%s moved_to_archive=%s",
-                call_id,
+                current_path,
                 archive_path,
             )
             continue
 
-        logger.warning(
-            "new row stranded id=%s missing current_path=%s archive_path=%s",
-            call_id,
-            current_path,
-            archive_path,
-        )
+        age = time_module.time() - resolved_path.stat().st_mtime
+        if age >= settings.file_stable_seconds:
+            update_call_status(call_id, status="queued")
+            changed += 1
+            logger.info("queued id=%s path=%s", call_id, resolved_path)
+        else:
+            logger.info(
+                "still new id=%s age=%.1fs required=%ss path=%s",
+                call_id,
+                age,
+                settings.file_stable_seconds,
+                resolved_path,
+            )
 
     return changed
 

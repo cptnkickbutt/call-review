@@ -17,7 +17,7 @@ from callreview.db import (
     update_playback_info,
 )
 from callreview.utils import build_archive_path, safe_move, sha256_file
-from callreview.ingest import is_under, is_playback_file
+from callreview.ingest import is_under, is_playback_file, resolve_moved_call_path
 
 
 @lru_cache(maxsize=1)
@@ -451,19 +451,34 @@ def process_call_row(row) -> None:
     recorded_at_raw = row["recorded_at"]
 
     if not current_path.exists():
-        update_call_status(
-            call_id,
-            status="failed",
-            transcript_status="failed",
-            error_message="File no longer exists at current_path",
-        )
-        update_playback_info(
-            call_id,
-            playback_path=None,
-            playback_status="failed",
-            playback_error="Source file missing",
-        )
-        return
+        recovered_path = None
+
+        if system == "cx":
+            recovered_path = resolve_moved_call_path(current_path, settings.archive_cx_dir)
+        elif system == "vipvoice" and settings.archive_vip_dir:
+            recovered_path = resolve_moved_call_path(current_path, settings.archive_vip_dir)
+
+        if recovered_path:
+            current_path = recovered_path
+            update_call_paths(
+                call_id,
+                current_path=str(current_path),
+                archive_path=str(current_path) if is_under(current_path, settings.archive_cx_dir) else row["archive_path"],
+            )
+        else:
+            update_call_status(
+                call_id,
+                status="failed",
+                transcript_status="failed",
+                error_message="File no longer exists at current_path",
+            )
+            update_playback_info(
+                call_id,
+                playback_path=None,
+                playback_status="failed",
+                playback_error="Source file missing",
+            )
+            return
 
     try:
         file_hash = sha256_file(current_path)
