@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime
+import time as time_module
 from pathlib import Path
 from typing import Iterator, Optional
 import re
@@ -143,7 +144,7 @@ def queue_stable_new_calls() -> int:
 
         # Normal case: current path still exists
         if current_path and current_path.exists() and current_path.is_file():
-            age = time.time() - current_path.stat().st_mtime
+            age = time_module.time() - current_path.stat().st_mtime
             if age >= settings.file_stable_seconds:
                 update_call_status(call_id, status="queued")
                 changed += 1
