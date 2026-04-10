@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from pathlib import Path
 from typing import Iterator, Optional
 import re
 
 from callreview.config import settings
-from callreview.db import get_call_by_current_path, insert_call, update_call_status
+from callreview.db import get_call_by_current_path, insert_call, update_call_paths, update_call_status
 from callreview.utils import file_is_stable, is_audio_file, parse_datetime_from_path_parts
 
 
@@ -125,12 +125,11 @@ def queue_stable_new_calls() -> int:
     )
 
     changed = 0
-    checked = 0
 
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, current_path
+            SELECT id, current_path, archive_path
             FROM calls
             WHERE status = 'new'
             ORDER BY discovered_at ASC
@@ -138,27 +137,50 @@ def queue_stable_new_calls() -> int:
         ).fetchall()
 
     for row in rows:
-        checked += 1
-        path = Path(row["current_path"])
+        call_id = row["id"]
+        current_path = Path(row["current_path"]) if row["current_path"] else None
+        archive_path = Path(row["archive_path"]) if row["archive_path"] else None
 
-        if not path.exists():
-            logger.warning(
-                "queue check skipped id=%s path missing: %s",
-                row["id"],
-                path,
+        # Normal case: current path still exists
+        if current_path and current_path.exists() and current_path.is_file():
+            age = time.time() - current_path.stat().st_mtime
+            if age >= settings.file_stable_seconds:
+                update_call_status(call_id, status="queued")
+                changed += 1
+                logger.info("queued id=%s from current_path=%s", call_id, current_path)
+            else:
+                logger.info(
+                    "still new id=%s age=%.1fs required=%ss path=%s",
+                    call_id,
+                    age,
+                    settings.file_stable_seconds,
+                    current_path,
+                )
+            continue
+
+        # Recovery case: file already moved to archive before queueing
+        if archive_path and archive_path.exists() and archive_path.is_file():
+            update_call_paths(
+                call_id,
+                current_path=str(archive_path),
+                archive_path=str(archive_path),
+            )
+            update_call_status(call_id, status="queued")
+            changed += 1
+            logger.info(
+                "recovered and queued id=%s moved_to_archive=%s",
+                call_id,
+                archive_path,
             )
             continue
 
-        stable = file_is_stable(path, settings.file_stable_seconds)
+        logger.warning(
+            "new row stranded id=%s missing current_path=%s archive_path=%s",
+            call_id,
+            current_path,
+            archive_path,
+        )
 
-        if stable:
-            update_call_status(row["id"], status="queued")
-            changed += 1
-            logger.info("queued id=%s path=%s", row["id"], path)
-        else:
-            logger.info("still unstable id=%s path=%s", row["id"], path)
-
-    logger.info("queue pass checked=%s queued=%s", checked, changed)
     return changed
 
 def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
