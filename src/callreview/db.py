@@ -248,62 +248,117 @@ def upsert_call_discovery(
     status: str = "queued",
 ) -> tuple[int, bool]:
     now = utc_now_iso()
-    existing = get_call_by_identity(system, filename)
-
-    if existing is None:
-        call_id = insert_call(
-            system=system,
-            filename=filename,
-            source_path=source_path,
-            current_path=current_path,
-            archive_path=archive_path,
-            file_size=file_size,
-            modified_ts=modified_ts,
-            recorded_at=recorded_at,
-            call_time=call_time,
-            status=status,
-            transcript_status="pending",
-        )
-        return call_id, True
+    new_uuid = str(uuid.uuid4())
 
     with get_conn() as conn:
+        before = conn.execute(
+            """
+            SELECT id
+            FROM calls
+            WHERE system = ? AND filename = ?
+            LIMIT 1
+            """,
+            (system, filename),
+        ).fetchone()
+
         conn.execute(
             """
-            UPDATE calls
-            SET source_path = ?,
-                current_path = ?,
-                archive_path = ?,
-                file_size = ?,
-                modified_ts = ?,
-                recorded_at = COALESCE(?, recorded_at),
-                call_time = COALESCE(?, call_time),
-                status = CASE
-                    WHEN status IN ('processed', 'archived', 'processing') THEN status
-                    ELSE ?
-                END,
-                error_message = CASE
-                    WHEN status IN ('processed', 'archived', 'processing') THEN error_message
-                    ELSE NULL
-                END,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (
+            INSERT INTO calls (
+                uuid,
+                system,
+                filename,
                 source_path,
                 current_path,
                 archive_path,
+                playback_path,
+                playback_status,
+                playback_error,
+                file_hash,
                 file_size,
                 modified_ts,
                 recorded_at,
                 call_time,
+                discovered_at,
                 status,
+                transcript_status,
+                transcript_text,
+                summary_text,
+                tags_csv,
+                manual_tags_csv,
+                priority_score,
+                review_status,
+                reviewed_by,
+                notes,
+                flagged,
+                error_message,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(system, filename) DO UPDATE SET
+                source_path = excluded.source_path,
+                current_path = excluded.current_path,
+                archive_path = excluded.archive_path,
+                file_size = excluded.file_size,
+                modified_ts = excluded.modified_ts,
+                recorded_at = COALESCE(excluded.recorded_at, calls.recorded_at),
+                call_time = COALESCE(excluded.call_time, calls.call_time),
+                status = CASE
+                    WHEN calls.status IN ('processed', 'archived', 'processing') THEN calls.status
+                    ELSE excluded.status
+                END,
+                error_message = CASE
+                    WHEN calls.status IN ('processed', 'archived', 'processing') THEN calls.error_message
+                    ELSE NULL
+                END,
+                updated_at = excluded.updated_at
+            """,
+            (
+                new_uuid,
+                system,
+                filename,
+                source_path,
+                current_path,
+                archive_path,
+                None,
+                "pending",
+                None,
+                None,
+                file_size,
+                modified_ts,
+                recorded_at,
+                call_time,
                 now,
-                existing["id"],
+                status,
+                "pending",
+                None,
+                None,
+                None,
+                None,
+                0,
+                "unreviewed",
+                None,
+                None,
+                0,
+                None,
+                now,
+                now,
             ),
         )
-    return int(existing["id"]), False
 
+        row = conn.execute(
+            """
+            SELECT id
+            FROM calls
+            WHERE system = ? AND filename = ?
+            LIMIT 1
+            """,
+            (system, filename),
+        ).fetchone()
 
+        return int(row["id"]), before is None
+    
+    
 def update_call_paths(
     call_id: int,
     *,
