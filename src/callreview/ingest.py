@@ -8,7 +8,7 @@ import fcntl
 import re
 
 from callreview.config import settings
-from callreview.db import get_conn, upsert_call_discovery, update_call_status
+from callreview.db import get_call_by_identity, get_conn, upsert_call_discovery, update_call_status
 from callreview.utils import (
     build_archive_path,
     file_is_stable,
@@ -36,6 +36,14 @@ def walk_files_with_suffix(root: Path, suffixes: set[str]) -> Iterator[Path]:
             yield path
 
 
+def walk_top_level_files_with_suffix(root: Path, suffixes: set[str]) -> Iterator[Path]:
+    if not root.exists():
+        return
+    for path in root.iterdir():
+        if path.is_file() and path.suffix.lower() in suffixes:
+            yield path
+
+
 def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
     match = re.search(r"aud-(\d{14})", filename)
     if match:
@@ -49,15 +57,17 @@ def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
 def discover_cx_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
 
-    # CX should only ingest mp3 source audio.
-    for path in walk_files_with_suffix(settings.cx_source_dir, {".mp3"}):
+    # CX files land unsorted at the top level of Call_Recordings.
+    # Do NOT recurse, or we will rescan WIOGEN-CX/WIOGEN-TS archives forever.
+    for path in walk_top_level_files_with_suffix(settings.cx_source_dir, {".mp3"}):
         if path.name.lower().endswith(".playback.mp3"):
             continue
         if not file_is_stable(path, settings.file_stable_seconds):
             continue
 
         stat = path.stat()
-        recorded_at = datetime.fromtimestamp(stat.st_mtime)
+        recorded_at = datetime.fromtimestamp(stat.st_mtime).replace(microsecond=0)
+
         canonical_path = build_archive_path(
             archive_root=settings.archive_cx_dir,
             recorded_dt=recorded_at,
@@ -142,12 +152,48 @@ def _move_to_archive(item: DiscoveredFile) -> tuple[Path, int, float]:
     return canonical_path, stat.st_size, stat.st_mtime
 
 
+def _is_unchanged(
+    *,
+    system: str,
+    canonical_path: Path,
+    file_size: int,
+    modified_ts: float,
+) -> bool:
+    existing = get_call_by_identity(system, canonical_path.name)
+    if existing is None:
+        return False
+
+    try:
+        existing_size = int(existing["file_size"])
+    except (TypeError, ValueError):
+        existing_size = -1
+
+    try:
+        existing_mtime = float(existing["modified_ts"])
+    except (TypeError, ValueError):
+        existing_mtime = -1.0
+
+    return (
+        existing["current_path"] == str(canonical_path)
+        and existing_size == int(file_size)
+        and existing_mtime == float(modified_ts)
+    )
+
+
 def register_discoveries() -> int:
     discovered = 0
 
     for item in discover_cx_files():
         canonical_path, file_size, modified_ts = _move_to_archive(item)
-        call_time = datetime.fromtimestamp(modified_ts).isoformat()
+        call_time = datetime.fromtimestamp(modified_ts).replace(microsecond=0).isoformat()
+
+        if _is_unchanged(
+            system="cx",
+            canonical_path=canonical_path,
+            file_size=file_size,
+            modified_ts=modified_ts,
+        ):
+            continue
 
         _call_id, inserted = upsert_call_discovery(
             system="cx",
@@ -166,7 +212,15 @@ def register_discoveries() -> int:
 
     for item in discover_vipvoice_files():
         canonical_path, file_size, modified_ts = _move_to_archive(item)
-        call_time = item.recorded_at or datetime.fromtimestamp(modified_ts)
+        call_time_dt = item.recorded_at or datetime.fromtimestamp(modified_ts).replace(microsecond=0)
+
+        if _is_unchanged(
+            system="vipvoice",
+            canonical_path=canonical_path,
+            file_size=file_size,
+            modified_ts=modified_ts,
+        ):
+            continue
 
         _call_id, inserted = upsert_call_discovery(
             system="vipvoice",
@@ -177,7 +231,7 @@ def register_discoveries() -> int:
             file_size=file_size,
             modified_ts=modified_ts,
             recorded_at=item.recorded_at.isoformat() if item.recorded_at else None,
-            call_time=call_time.isoformat() if call_time else None,
+            call_time=call_time_dt.isoformat() if call_time_dt else None,
             status="queued",
         )
         if inserted:
