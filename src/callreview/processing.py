@@ -16,7 +16,7 @@ from callreview.db import (
 from callreview.utils import sha256_file
 
 
-TRANSCRIPTION_MODEL = "medium"
+TRANSCRIPTION_MODEL = "small"
 TRANSCRIPTION_DEVICE = "cpu"
 TRANSCRIPTION_COMPUTE_TYPE = "int8"
 
