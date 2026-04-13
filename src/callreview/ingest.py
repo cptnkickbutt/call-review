@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional
 import re
+import fcntl
 
 from callreview.config import settings
 from callreview.db import get_conn, upsert_call_discovery, update_call_status
@@ -174,3 +175,16 @@ def queue_stable_new_calls() -> int:
             changed += 1
 
     return changed
+
+
+def register_discoveries_locked() -> int:
+    lock_path = settings.db_path.with_suffix(".discover.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(lock_path, "w", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+
+        return register_discoveries()

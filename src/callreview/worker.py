@@ -1,53 +1,60 @@
 from __future__ import annotations
 
 import time
+import traceback
 
 from callreview.config import settings
-from callreview.db import get_oldest_backlog_call, init_db, list_ready_new_calls
-from callreview.ingest import queue_stable_new_calls, register_discoveries
+from callreview.db import claim_next_call, init_db
+from callreview.ingest import queue_stable_new_calls, register_discoveries_locked
 from callreview.processing import process_call_row
 
 
-def pick_next_call(cycle_number: int):
-    ready = list_ready_new_calls(limit=10)
-
-    if ready:
-        if cycle_number % max(settings.worker_backlog_every, 1) == 0:
-            backlog = get_oldest_backlog_call()
-            if backlog is not None:
-                return backlog
-        return ready[0]
-
-    return get_oldest_backlog_call()
+def _prefix() -> str:
+    return f"[worker {settings.worker_instance}]"
 
 
 def run_worker() -> None:
     init_db()
     cycle = 0
 
-    print("Worker started.")
-    print(f"Scan interval: {settings.worker_scan_interval}s")
-    print(f"Dry run: {settings.dry_run}")
+    print(f"{_prefix()} started")
+    print(f"{_prefix()} scan interval: {settings.worker_scan_interval}s")
+    print(f"{_prefix()} dry run: {settings.dry_run}")
+    print(f"{_prefix()} discovery enabled: {settings.worker_discovery_enabled}")
 
     while True:
         cycle += 1
 
-        inserted = register_discoveries()
-        compat_queued = queue_stable_new_calls()
+        try:
+            inserted = 0
+            compat_queued = 0
 
-        if inserted:
-            print(f"[cycle {cycle}] registered {inserted} canonical file(s)")
-        if compat_queued:
-            print(f"[cycle {cycle}] re-queued {compat_queued} legacy row(s)")
+            if settings.worker_discovery_enabled:
+                inserted = register_discoveries_locked()
+                compat_queued = queue_stable_new_calls()
 
-        row = pick_next_call(cycle)
-        if row is not None:
-            print(
-                f"[cycle {cycle}] processing id={row['id']} "
-                f"system={row['system']} file={row['filename']}"
-            )
-            process_call_row(row)
-        else:
-            print(f"[cycle {cycle}] nothing ready")
+            if inserted:
+                print(f"{_prefix()} [cycle {cycle}] registered {inserted} canonical file(s)")
+            if compat_queued:
+                print(f"{_prefix()} [cycle {cycle}] re-queued {compat_queued} legacy row(s)")
+
+            row = claim_next_call(include_failed=True)
+
+            if row is not None:
+                print(
+                    f"{_prefix()} [cycle {cycle}] processing "
+                    f"id={row['id']} system={row['system']} file={row['filename']}"
+                )
+                process_call_row(row)
+            else:
+                print(f"{_prefix()} [cycle {cycle}] nothing ready")
+
+        except Exception as exc:
+            print(f"{_prefix()} [cycle {cycle}] unhandled worker error: {exc}")
+            print(traceback.format_exc())
 
         time.sleep(settings.worker_scan_interval)
+
+
+if __name__ == "__main__":
+    run_worker()

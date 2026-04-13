@@ -43,12 +43,20 @@ class Settings:
     file_stable_seconds: int
     worker_scan_interval: int
     worker_backlog_every: int
+    worker_instance: str
+    worker_discovery_enabled: bool
     web_host: str
     web_port: int
     dry_run: bool
 
 
 def load_settings() -> Settings:
+    worker_instance = os.getenv("WORKER_INSTANCE", "1").strip() or "1"
+    worker_discovery_enabled = _env_bool(
+        "WORKER_DISCOVERY_ENABLED",
+        worker_instance == "1",
+    )
+        
     return Settings(
         db_path=_env_path("CALLREVIEW_DB", "./data/callreview.db"),
         cx_source_dir=_env_path("CX_SOURCE_DIR", "./sample_data/cx_incoming"),
@@ -58,6 +66,8 @@ def load_settings() -> Settings:
         file_stable_seconds=_env_int("FILE_STABLE_SECONDS", 30),
         worker_scan_interval=_env_int("WORKER_SCAN_INTERVAL", 15),
         worker_backlog_every=_env_int("WORKER_BACKLOG_EVERY", 5),
+        worker_instance=worker_instance,
+        worker_discovery_enabled=worker_discovery_enabled,
         web_host=os.getenv("WEB_HOST", "127.0.0.1"),
         web_port=_env_int("WEB_PORT", 5000),
         dry_run=_env_bool("DRY_RUN", True),

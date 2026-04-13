@@ -21,8 +21,10 @@ def ensure_parent_dir(path: Path) -> None:
 @contextmanager
 def get_conn() -> Iterator[sqlite3.Connection]:
     ensure_parent_dir(settings.db_path)
-    conn = sqlite3.connect(settings.db_path)
+    conn = sqlite3.connect(settings.db_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     try:
         yield conn
         conn.commit()
@@ -112,8 +114,6 @@ def init_db() -> None:
                 """
             )
         except sqlite3.IntegrityError:
-            # Legacy duplicate rows may still exist in an older database.
-            # The app-level upsert logic below still keeps new inserts sane.
             pass
 
 
@@ -299,8 +299,68 @@ def upsert_call_discovery(
         ).fetchone()
 
         return int(row["id"]), before is None
-    
-    
+
+
+def claim_next_call(include_failed: bool = True) -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+
+        if include_failed:
+            candidate = conn.execute(
+                """
+                SELECT id
+                FROM calls
+                WHERE status IN ('queued', 'failed')
+                ORDER BY
+                    CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
+                    COALESCE(call_time, discovered_at) ASC,
+                    id ASC
+                LIMIT 1
+                """
+            ).fetchone()
+        else:
+            candidate = conn.execute(
+                """
+                SELECT id
+                FROM calls
+                WHERE status = 'queued'
+                ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
+                LIMIT 1
+                """
+            ).fetchone()
+
+        if candidate is None:
+            conn.commit()
+            return None
+
+        call_id = int(candidate["id"])
+
+        conn.execute(
+            """
+            UPDATE calls
+            SET status = 'processing',
+                transcript_status = 'running',
+                error_message = NULL,
+                updated_at = ?
+            WHERE id = ? AND status IN ('queued', 'failed')
+            """,
+            (utc_now_iso(), call_id),
+        )
+
+        claimed = conn.execute("SELECT changes() AS n").fetchone()
+        if not claimed or int(claimed["n"]) != 1:
+            conn.commit()
+            return None
+
+        row = conn.execute(
+            "SELECT * FROM calls WHERE id = ? LIMIT 1",
+            (call_id,),
+        ).fetchone()
+
+        conn.commit()
+        return row
+
+
 def update_call_paths(
     call_id: int,
     *,
@@ -519,183 +579,17 @@ def count_calls(
             OR COALESCE(manual_tags_csv, '') LIKE ?
         )
         """
-        params.append(f"%{tag}%")
-        params.append(f"%{tag}%")
+        tag_like = f"%{tag}%"
+        params.extend([tag_like, tag_like])
 
     if date_from:
         sql += " AND COALESCE(call_time, discovered_at) >= ?"
         params.append(date_from)
 
     if date_to:
-        sql += " AND COALESCE(call_time, discovered_at) < date(?, '+1 day')"
+        sql += " AND COALESCE(call_time, discovered_at) <= ?"
         params.append(date_to)
 
     with get_conn() as conn:
-        row = conn.execute(sql, tuple(params)).fetchone()
-
-    return int(row["count"]) if row else 0
-
-
-def search_calls(
-    query: str,
-    system: Optional[str] = None,
-    tag: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-    sort: str = "call_time",
-    order: str = "desc",
-    limit: int = 200,
-    offset: int = 0,
-) -> list[sqlite3.Row]:
-    sql = "SELECT * FROM calls WHERE 1=1"
-    params: list[object] = []
-
-    if query:
-        query_like = f"%{query}%"
-        sql += """
-        AND (
-            filename LIKE ?
-            OR current_path LIKE ?
-            OR COALESCE(transcript_text, '') LIKE ?
-            OR COALESCE(summary_text, '') LIKE ?
-            OR COALESCE(tags_csv, '') LIKE ?
-            OR COALESCE(manual_tags_csv, '') LIKE ?
-            OR COALESCE(notes, '') LIKE ?
-        )
-        """
-        params.extend([query_like] * 7)
-
-    if system:
-        sql += " AND system = ?"
-        params.append(system)
-
-    if tag:
-        sql += """
-        AND (
-            COALESCE(tags_csv, '') LIKE ?
-            OR COALESCE(manual_tags_csv, '') LIKE ?
-        )
-        """
-        params.append(f"%{tag}%")
-        params.append(f"%{tag}%")
-
-    if date_from:
-        sql += " AND COALESCE(call_time, discovered_at) >= ?"
-        params.append(date_from)
-
-    if date_to:
-        sql += " AND COALESCE(call_time, discovered_at) < date(?, '+1 day')"
-        params.append(date_to)
-
-    sort_map = {
-        "date": "COALESCE(call_time, discovered_at)",
-        "priority": "priority_score",
-        "id": "id",
-    }
-    sort_expr = sort_map.get(sort, "COALESCE(call_time, discovered_at)")
-    sort_order = "ASC" if order.lower() == "asc" else "DESC"
-
-    sql += f" ORDER BY {sort_expr} {sort_order}, id DESC LIMIT ? OFFSET ?"
-    params.append(limit)
-    params.append(offset)
-
-    with get_conn() as conn:
-        rows = conn.execute(sql, tuple(params)).fetchall()
-
-    return list(rows)
-
-
-def top_tags(limit: int = 20) -> list[tuple[str, int]]:
-    counts: dict[str, int] = {}
-
-    with get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT tags_csv
-            FROM calls
-            WHERE tags_csv IS NOT NULL
-              AND TRIM(tags_csv) != ''
-            """
-        ).fetchall()
-
-    for row in rows:
-        raw = row["tags_csv"] or ""
-        for tag in raw.split(","):
-            cleaned = tag.strip()
-            if not cleaned:
-                continue
-            counts[cleaned] = counts.get(cleaned, 0) + 1
-
-    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
-
-
-def _split_csv_tags(raw: Optional[str]) -> list[str]:
-    if not raw:
-        return []
-    return [part.strip() for part in raw.split(",") if part.strip()]
-
-
-def _join_csv_tags(tags: list[str]) -> str:
-    return ",".join(sorted(dict.fromkeys(tags), key=str.lower))
-
-
-def get_all_distinct_tags(limit: int = 500) -> list[str]:
-    counts: dict[str, int] = {}
-
-    with get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT tags_csv, manual_tags_csv
-            FROM calls
-            """
-        ).fetchall()
-
-    for row in rows:
-        for raw in (row["tags_csv"], row["manual_tags_csv"]):
-            for tag in _split_csv_tags(raw):
-                counts[tag] = counts.get(tag, 0) + 1
-
-    tags = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    return [tag for tag, _count in tags[:limit]]
-
-
-def add_manual_tag(call_id: int, tag: str) -> None:
-    row = get_call_by_id(call_id)
-    if row is None:
-        return
-
-    clean_tag = tag.strip()
-    if not clean_tag:
-        return
-
-    manual_tags = _split_csv_tags(row["manual_tags_csv"])
-    if clean_tag not in manual_tags:
-        manual_tags.append(clean_tag)
-
-    with get_conn() as conn:
-        conn.execute(
-            """
-            UPDATE calls
-            SET manual_tags_csv = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (_join_csv_tags(manual_tags), utc_now_iso(), call_id),
-        )
-
-
-def remove_manual_tag(call_id: int, tag: str) -> None:
-    row = get_call_by_id(call_id)
-    if row is None:
-        return
-
-    manual_tags = [t for t in _split_csv_tags(row["manual_tags_csv"]) if t != tag]
-
-    with get_conn() as conn:
-        conn.execute(
-            """
-            UPDATE calls
-            SET manual_tags_csv = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (_join_csv_tags(manual_tags), utc_now_iso(), call_id),
-        )
+        row = conn.execute(sql, params).fetchone()
+        return int(row["count"])
