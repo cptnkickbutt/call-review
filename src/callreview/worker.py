@@ -6,7 +6,10 @@ import traceback
 from callreview.config import settings
 from callreview.db import claim_next_call, init_db
 from callreview.ingest import queue_stable_new_calls, register_discoveries_locked
+from callreview.logging_utils import setup_logging
 from callreview.processing import process_call_row
+
+logger = setup_logging("callreview.worker")
 
 
 def _prefix() -> str:
@@ -17,10 +20,10 @@ def run_worker() -> None:
     init_db()
     cycle = 0
 
-    print(f"{_prefix()} started")
-    print(f"{_prefix()} scan interval: {settings.worker_scan_interval}s")
-    print(f"{_prefix()} dry run: {settings.dry_run}")
-    print(f"{_prefix()} discovery enabled: {settings.worker_discovery_enabled}")
+    logger.info("%s started", _prefix())
+    logger.info("%s scan interval: %ss", _prefix(), settings.worker_scan_interval)
+    logger.info("%s dry run: %s", _prefix(), settings.dry_run)
+    logger.info("%s discovery enabled: %s", _prefix(), settings.worker_discovery_enabled)
 
     while True:
         cycle += 1
@@ -34,24 +37,42 @@ def run_worker() -> None:
                 compat_queued = queue_stable_new_calls()
 
             if inserted:
-                print(f"{_prefix()} [cycle {cycle}] registered {inserted} canonical file(s)")
+                logger.info(
+                    "%s [cycle %s] registered %s canonical file(s)",
+                    _prefix(),
+                    cycle,
+                    inserted,
+                )
             if compat_queued:
-                print(f"{_prefix()} [cycle {cycle}] re-queued {compat_queued} legacy row(s)")
+                logger.info(
+                    "%s [cycle %s] re-queued %s legacy row(s)",
+                    _prefix(),
+                    cycle,
+                    compat_queued,
+                )
 
             row = claim_next_call(include_failed=True)
 
             if row is not None:
-                print(
-                    f"{_prefix()} [cycle {cycle}] processing "
-                    f"id={row['id']} system={row['system']} file={row['filename']}"
+                logger.info(
+                    "%s [cycle %s] processing id=%s system=%s file=%s",
+                    _prefix(),
+                    cycle,
+                    row["id"],
+                    row["system"],
+                    row["filename"],
                 )
                 process_call_row(row)
             else:
-                print(f"{_prefix()} [cycle {cycle}] nothing ready")
+                logger.info("%s [cycle %s] nothing ready", _prefix(), cycle)
 
         except Exception as exc:
-            print(f"{_prefix()} [cycle {cycle}] unhandled worker error: {exc}")
-            print(traceback.format_exc())
+            logger.exception(
+                "%s [cycle %s] unhandled worker error: %s",
+                _prefix(),
+                cycle,
+                exc,
+            )
 
         time.sleep(settings.worker_scan_interval)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from logging.handlers import WatchedFileHandler
 from pathlib import Path
 
 
@@ -31,7 +32,7 @@ def setup_logging(
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    file_handler = logging.FileHandler(log_path / log_filename, encoding="utf-8")
+    file_handler = WatchedFileHandler(log_path / log_filename, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
