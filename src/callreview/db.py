@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Iterator, Optional
 
@@ -635,7 +635,11 @@ def claim_oldest_backlog_call() -> Optional[sqlite3.Row]:
         return full_row
     
     
-def reset_interrupted_processing_calls() -> int:
+def reset_interrupted_processing_calls(stale_minutes: int) -> int:
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=max(stale_minutes, 1))
+    ).replace(microsecond=0).isoformat()
+
     with get_conn() as conn:
         conn.execute(
             """
@@ -645,8 +649,10 @@ def reset_interrupted_processing_calls() -> int:
                 error_message = 'Worker restarted while processing',
                 updated_at = ?
             WHERE status = 'processing'
+              AND updated_at IS NOT NULL
+              AND updated_at < ?
             """,
-            (utc_now_iso(),),
+            (utc_now_iso(), cutoff),
         )
         row = conn.execute("SELECT changes() AS n").fetchone()
         return int(row["n"]) if row else 0

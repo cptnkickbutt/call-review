@@ -43,6 +43,7 @@ class Settings:
     file_stable_seconds: int
     worker_scan_interval: int
     worker_backlog_every: int
+    worker_stale_processing_minutes: int
     worker_instance: str
     worker_discovery_enabled: bool
     web_host: str
@@ -66,6 +67,7 @@ def load_settings() -> Settings:
         file_stable_seconds=_env_int("FILE_STABLE_SECONDS", 30),
         worker_scan_interval=_env_int("WORKER_SCAN_INTERVAL", 15),
         worker_backlog_every=_env_int("WORKER_BACKLOG_EVERY", 5),
+        worker_stale_processing_minutes=_env_int("WORKER_STALE_PROCESSING_MINUTES", 20),
         worker_instance=worker_instance,
         worker_discovery_enabled=worker_discovery_enabled,
         web_host=os.getenv("WEB_HOST", "127.0.0.1"),

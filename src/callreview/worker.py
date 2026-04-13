@@ -35,13 +35,22 @@ def run_worker() -> None:
     init_db()
     cycle = 0
 
-    reset_count = reset_interrupted_processing_calls()
+    reset_count = 0
+    if settings.worker_instance == "1":
+        reset_count = reset_interrupted_processing_calls(
+            settings.worker_stale_processing_minutes
+        )
 
     logger.info("%s started", _prefix())
     logger.info("%s scan interval: %ss", _prefix(), settings.worker_scan_interval)
     logger.info("%s dry run: %s", _prefix(), settings.dry_run)
     logger.info("%s discovery enabled: %s", _prefix(), settings.worker_discovery_enabled)
-
+    
+    logger.info(
+        "%s stale processing threshold: %sm",
+        _prefix(),
+        settings.worker_stale_processing_minutes,
+    )
     if reset_count:
         logger.info("%s reset %s interrupted processing call(s)", _prefix(), reset_count)
 
