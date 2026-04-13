@@ -83,7 +83,6 @@ def discover_cx_files() -> list[DiscoveredFile]:
 def discover_vipvoice_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
 
-    # VIPVoice should only ingest wav source audio.
     for path in walk_files_with_suffix(settings.vip_source_dir, {".wav"}):
         if path.name.lower().endswith(".playback.mp3"):
             continue
@@ -92,7 +91,20 @@ def discover_vipvoice_files() -> list[DiscoveredFile]:
 
         stat = path.stat()
         filename_dt = parse_vip_filename_datetime(path.name)
-        recorded_at = filename_dt or parse_datetime_from_path_parts(path.parent)
+        path_dt = parse_datetime_from_path_parts(path.parent)
+        mtime_dt = datetime.fromtimestamp(stat.st_mtime)
+
+        if filename_dt is not None:
+            recorded_at = filename_dt.replace(microsecond=0)
+        elif path_dt is not None:
+            recorded_at = path_dt.replace(
+                hour=mtime_dt.hour,
+                minute=mtime_dt.minute,
+                second=mtime_dt.second,
+                microsecond=0,
+            )
+        else:
+            recorded_at = mtime_dt.replace(microsecond=0)
 
         canonical_path = build_archive_path(
             archive_root=settings.archive_vip_dir,
