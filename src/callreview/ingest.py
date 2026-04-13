@@ -4,15 +4,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional
-import re
 import fcntl
+import re
 
 from callreview.config import settings
 from callreview.db import get_conn, upsert_call_discovery, update_call_status
 from callreview.utils import (
     build_archive_path,
     file_is_stable,
-    is_audio_file,
     parse_datetime_from_path_parts,
     safe_move,
 )
@@ -29,11 +28,11 @@ class DiscoveredFile:
     modified_ts: float
 
 
-def walk_audio_files(root: Path) -> Iterator[Path]:
+def walk_files_with_suffix(root: Path, suffixes: set[str]) -> Iterator[Path]:
     if not root.exists():
         return
     for path in root.rglob("*"):
-        if is_audio_file(path):
+        if path.is_file() and path.suffix.lower() in suffixes:
             yield path
 
 
@@ -49,7 +48,9 @@ def parse_vip_filename_datetime(filename: str) -> Optional[datetime]:
 
 def discover_cx_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
-    for path in walk_audio_files(settings.cx_source_dir):
+
+    # CX should only ingest mp3 source audio.
+    for path in walk_files_with_suffix(settings.cx_source_dir, {".mp3"}):
         if path.name.lower().endswith(".playback.mp3"):
             continue
         if not file_is_stable(path, settings.file_stable_seconds):
@@ -75,32 +76,47 @@ def discover_cx_files() -> list[DiscoveredFile]:
                 modified_ts=stat.st_mtime,
             )
         )
+
     return items
 
 
 def discover_vipvoice_files() -> list[DiscoveredFile]:
     items: list[DiscoveredFile] = []
-    for path in walk_audio_files(settings.vip_source_dir):
+
+    # VIPVoice should only ingest wav source audio.
+    for path in walk_files_with_suffix(settings.vip_source_dir, {".wav"}):
         if path.name.lower().endswith(".playback.mp3"):
             continue
+        if not file_is_stable(path, settings.file_stable_seconds):
+            continue
+
         stat = path.stat()
         filename_dt = parse_vip_filename_datetime(path.name)
         recorded_at = filename_dt or parse_datetime_from_path_parts(path.parent)
+
+        canonical_path = build_archive_path(
+            archive_root=settings.archive_vip_dir,
+            recorded_dt=recorded_at,
+            fallback_mtime=stat.st_mtime,
+            filename=path.name,
+        )
+
         items.append(
             DiscoveredFile(
                 system="vipvoice",
                 path=path,
                 source_path=path,
-                canonical_path=path,
+                canonical_path=canonical_path,
                 recorded_at=recorded_at,
                 file_size=stat.st_size,
                 modified_ts=stat.st_mtime,
             )
         )
+
     return items
 
 
-def _move_cx_to_archive(item: DiscoveredFile) -> tuple[Path, int, float]:
+def _move_to_archive(item: DiscoveredFile) -> tuple[Path, int, float]:
     canonical_path = item.canonical_path
 
     if item.path.resolve() != canonical_path.resolve():
@@ -118,7 +134,7 @@ def register_discoveries() -> int:
     discovered = 0
 
     for item in discover_cx_files():
-        canonical_path, file_size, modified_ts = _move_cx_to_archive(item)
+        canonical_path, file_size, modified_ts = _move_to_archive(item)
         call_time = datetime.fromtimestamp(modified_ts).isoformat()
 
         _call_id, inserted = upsert_call_discovery(
@@ -137,15 +153,17 @@ def register_discoveries() -> int:
             discovered += 1
 
     for item in discover_vipvoice_files():
-        call_time = item.recorded_at or datetime.fromtimestamp(item.modified_ts)
+        canonical_path, file_size, modified_ts = _move_to_archive(item)
+        call_time = item.recorded_at or datetime.fromtimestamp(modified_ts)
+
         _call_id, inserted = upsert_call_discovery(
             system="vipvoice",
-            filename=item.path.name,
+            filename=canonical_path.name,
             source_path=str(item.source_path),
-            current_path=str(item.canonical_path),
-            archive_path=str(item.canonical_path),
-            file_size=item.file_size,
-            modified_ts=item.modified_ts,
+            current_path=str(canonical_path),
+            archive_path=str(canonical_path),
+            file_size=file_size,
+            modified_ts=modified_ts,
             recorded_at=item.recorded_at.isoformat() if item.recorded_at else None,
             call_time=call_time.isoformat() if call_time else None,
             status="queued",
@@ -154,6 +172,19 @@ def register_discoveries() -> int:
             discovered += 1
 
     return discovered
+
+
+def register_discoveries_locked() -> int:
+    lock_path = settings.db_path.with_suffix(".discover.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(lock_path, "w", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+
+        return register_discoveries()
 
 
 def queue_stable_new_calls() -> int:
@@ -175,16 +206,3 @@ def queue_stable_new_calls() -> int:
             changed += 1
 
     return changed
-
-
-def register_discoveries_locked() -> int:
-    lock_path = settings.db_path.with_suffix(".discover.lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(lock_path, "w", encoding="utf-8") as lock_file:
-        try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            return 0
-
-        return register_discoveries()

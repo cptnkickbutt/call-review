@@ -543,6 +543,115 @@ def get_oldest_backlog_call() -> Optional[sqlite3.Row]:
         ).fetchone()
 
 
+def claim_newest_queued_call() -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+
+        row = conn.execute(
+            """
+            SELECT id
+            FROM calls
+            WHERE status = 'queued'
+            ORDER BY COALESCE(call_time, discovered_at) DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if row is None:
+            conn.commit()
+            return None
+
+        call_id = int(row["id"])
+
+        conn.execute(
+            """
+            UPDATE calls
+            SET status = 'processing',
+                transcript_status = 'running',
+                error_message = NULL,
+                updated_at = ?
+            WHERE id = ? AND status = 'queued'
+            """,
+            (utc_now_iso(), call_id),
+        )
+
+        claimed = conn.execute("SELECT changes() AS n").fetchone()
+        if not claimed or int(claimed["n"]) != 1:
+            conn.commit()
+            return None
+
+        full_row = conn.execute(
+            "SELECT * FROM calls WHERE id = ? LIMIT 1",
+            (call_id,),
+        ).fetchone()
+
+        conn.commit()
+        return full_row
+
+
+def claim_oldest_backlog_call() -> Optional[sqlite3.Row]:
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+
+        row = conn.execute(
+            """
+            SELECT id
+            FROM calls
+            WHERE status IN ('queued', 'failed')
+            ORDER BY COALESCE(call_time, discovered_at) ASC, id ASC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if row is None:
+            conn.commit()
+            return None
+
+        call_id = int(row["id"])
+
+        conn.execute(
+            """
+            UPDATE calls
+            SET status = 'processing',
+                transcript_status = 'running',
+                error_message = NULL,
+                updated_at = ?
+            WHERE id = ? AND status IN ('queued', 'failed')
+            """,
+            (utc_now_iso(), call_id),
+        )
+
+        claimed = conn.execute("SELECT changes() AS n").fetchone()
+        if not claimed or int(claimed["n"]) != 1:
+            conn.commit()
+            return None
+
+        full_row = conn.execute(
+            "SELECT * FROM calls WHERE id = ? LIMIT 1",
+            (call_id,),
+        ).fetchone()
+
+        conn.commit()
+        return full_row
+    
+    
+def reset_interrupted_processing_calls() -> int:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE calls
+            SET status = 'queued',
+                transcript_status = 'pending',
+                error_message = 'Worker restarted while processing',
+                updated_at = ?
+            WHERE status = 'processing'
+            """,
+            (utc_now_iso(),),
+        )
+        row = conn.execute("SELECT changes() AS n").fetchone()
+        return int(row["n"]) if row else 0
+    
+    
 def count_calls(
     query: str,
     system: Optional[str] = None,
