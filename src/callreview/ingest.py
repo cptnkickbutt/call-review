@@ -155,6 +155,7 @@ def _move_to_archive(item: DiscoveredFile) -> tuple[Path, int, float]:
 def _is_unchanged(
     *,
     system: str,
+    current_path: Path,
     canonical_path: Path,
     file_size: int,
     modified_ts: float,
@@ -173,27 +174,41 @@ def _is_unchanged(
     except (TypeError, ValueError):
         existing_mtime = -1.0
 
+    existing_current = existing["current_path"] or ""
+    existing_archive = existing["archive_path"] or ""
+
     return (
-        existing["current_path"] == str(canonical_path)
+        existing_current == str(canonical_path)
+        and existing_archive == str(canonical_path)
         and existing_size == int(file_size)
         and existing_mtime == float(modified_ts)
+        and current_path.resolve() == canonical_path.resolve()
     )
 
 
 def register_discoveries() -> int:
     discovered = 0
 
+    cx_skipped = 0
+    cx_seen = 0
+    vip_skipped = 0
+    vip_seen = 0
+
     for item in discover_cx_files():
-        canonical_path, file_size, modified_ts = _move_to_archive(item)
-        call_time = datetime.fromtimestamp(modified_ts).replace(microsecond=0).isoformat()
+        cx_seen += 1
 
         if _is_unchanged(
             system="cx",
-            canonical_path=canonical_path,
-            file_size=file_size,
-            modified_ts=modified_ts,
+            current_path=item.path,
+            canonical_path=item.canonical_path,
+            file_size=item.file_size,
+            modified_ts=item.modified_ts,
         ):
+            cx_skipped += 1
             continue
+
+        canonical_path, file_size, modified_ts = _move_to_archive(item)
+        call_time = datetime.fromtimestamp(modified_ts).replace(microsecond=0).isoformat()
 
         _call_id, inserted = upsert_call_discovery(
             system="cx",
@@ -211,16 +226,20 @@ def register_discoveries() -> int:
             discovered += 1
 
     for item in discover_vipvoice_files():
-        canonical_path, file_size, modified_ts = _move_to_archive(item)
-        call_time_dt = item.recorded_at or datetime.fromtimestamp(modified_ts).replace(microsecond=0)
+        vip_seen += 1
 
         if _is_unchanged(
             system="vipvoice",
-            canonical_path=canonical_path,
-            file_size=file_size,
-            modified_ts=modified_ts,
+            current_path=item.path,
+            canonical_path=item.canonical_path,
+            file_size=item.file_size,
+            modified_ts=item.modified_ts,
         ):
+            vip_skipped += 1
             continue
+
+        canonical_path, file_size, modified_ts = _move_to_archive(item)
+        call_time_dt = item.recorded_at or datetime.fromtimestamp(modified_ts).replace(microsecond=0)
 
         _call_id, inserted = upsert_call_discovery(
             system="vipvoice",
@@ -236,6 +255,11 @@ def register_discoveries() -> int:
         )
         if inserted:
             discovered += 1
+
+    print(
+        f"[discovery] cx_seen={cx_seen} cx_skipped={cx_skipped} "
+        f"vip_seen={vip_seen} vip_skipped={vip_skipped} inserted={discovered}"
+    )
 
     return discovered
 
