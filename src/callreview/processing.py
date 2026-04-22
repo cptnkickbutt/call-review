@@ -302,9 +302,11 @@ def generate_playback_file(source_path: Path) -> tuple[Path | None, str, str | N
         "-ac",
         "1",
         "-ar",
-        "22050",
+        "8000",
         "-b:a",
-        "96k",
+        "32k",
+        "-compression_level",
+        "9",
         str(output_path),
     ]
 
